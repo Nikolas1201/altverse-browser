@@ -278,9 +278,24 @@ def index():
     return PAGE
 
 
+def _loaded_ids() -> list:
+    try:
+        r = subprocess.run(["lemonade", "status", "--json"],
+                           capture_output=True, text=True, timeout=30)
+        return [m.get("model_name") for m in
+                json.loads(r.stdout).get("models", [])]
+    except Exception:  # noqa: BLE001 - fall through to load path
+        return []
+
+
 def _do_switch(model_id: str, ctx: int):
     _switch.update(state="loading", detail=model_id)
     try:
+        if model_id in _loaded_ids():
+            # already resident: flip instantly, no unload/reload cycle
+            _current["id"] = model_id
+            _switch.update(state="ready", detail=model_id)
+            return
         prev = _current["id"]
         if prev != model_id:
             # exclusive loading: release the old model first so a big model
