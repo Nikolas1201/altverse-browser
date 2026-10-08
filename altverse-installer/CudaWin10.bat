@@ -1,8 +1,8 @@
 @echo off
-:: Shared Win10 CUDA workaround for AltVerse.
-:: Contract: caller sets BACKEND and LEMONADE. No-op unless Win10 + cuda.
-:: Mirrors what Lemonade does on Win11: download the sm_XX .7z asset,
-:: extract to cuda.staging, write version.txt, swap into place.
+REM Shared Win10 CUDA workaround for AltVerse.
+REM Contract: caller sets BACKEND and LEMONADE. No-op unless Win10 + cuda.
+REM Mirrors what Lemonade does on Win11: download the sm_XX .7z asset,
+REM extract to cuda.staging, write version.txt, swap into place.
 
 if not "%BACKEND%"=="cuda" exit /b 0
 

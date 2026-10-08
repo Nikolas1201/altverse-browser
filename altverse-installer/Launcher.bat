@@ -2,7 +2,7 @@
 setlocal
 cd /d "%~dp0"
 
-:: model choice written by the installer (line1 = model id, line2 = ctx size)
+REM model choice written by the installer (line1 = model id, line2 = ctx size)
 if not exist model.txt (
   echo Qwen3-4B-Instruct-2507-GGUF>model.txt
   echo 4096>>model.txt
@@ -10,7 +10,7 @@ if not exist model.txt (
 <model.txt (set /p ALTVERSE_MODEL=&set /p ALTVERSE_CTX=)
 echo [AltVerse] model=%ALTVERSE_MODEL% ctx=%ALTVERSE_CTX%
 
-:: 1. Python: prefer 3.11 (known-good module set), else default 3.x
+REM 1. Python: prefer 3.11 (known-good module set), else default 3.x
 py -3.11 --version >nul 2>&1
 if errorlevel 1 (set PY=py -3) else (set PY=py -3.11)
 %PY% --version
@@ -20,9 +20,9 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-%PY% -m pip install --quiet flask requests
+%PY% -m pip install --quiet --disable-pip-version-check flask requests
 
-:: 2. Lemonade Server: use it, or install it with winget, or point at docs
+REM 2. Lemonade Server: use it, or install it with winget, or point at docs
 set LEMONADE=lemonade
 where lemonade >nul 2>&1
 if errorlevel 1 (
@@ -47,9 +47,10 @@ if errorlevel 1 (
       )
     )
   )
+  )
 )
 
-:: 3. GPU backend: NVIDIA -> cuda, anything else -> vulkan. Then model.
+REM 3. GPU backend: NVIDIA -> cuda, anything else -> vulkan. Then model.
 nvidia-smi -L >nul 2>&1
 if errorlevel 1 (set BACKEND=vulkan) else (set BACKEND=cuda)
 echo [AltVerse] backend=%BACKEND%
@@ -68,16 +69,16 @@ if errorlevel 1 (
 %LEMONADE% pull %ALTVERSE_MODEL%
 %LEMONADE% load %ALTVERSE_MODEL% --llamacpp %BACKEND% --ctx-size %ALTVERSE_CTX% --llamacpp-args "--flash-attn on --parallel 1 --cache-type-k q8_0 --cache-type-v q8_0" --save-options --pinned
 
-:: 4. start the app minimized
+REM 4. start the app minimized
 start "AltVerse Server" /min %PY% app.py
 
-:: 5. wait until it answers
+REM 5. wait until it answers
 :wait
 %SystemRoot%\System32\timeout.exe /t 2 /nobreak >nul
 powershell -NoProfile -Command "try{(Invoke-WebRequest -Uri http://127.0.0.1:5057/ -TimeoutSec 2).StatusCode|Out-Null;exit 0}catch{exit 1}"
 if errorlevel 1 goto wait
 
-:: 6. open it: Chrome, else Edge, else default browser
+REM 6. open it: Chrome, else Edge, else default browser
 set BROWSER=
 if exist "C:\Program Files\Google\Chrome\Application\chrome.exe" set BROWSER="C:\Program Files\Google\Chrome\Application\chrome.exe"
 if not defined BROWSER if exist "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe" set BROWSER="C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"
