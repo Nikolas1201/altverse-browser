@@ -107,6 +107,7 @@ iframe{width:100%;height:calc(100vh - 130px);border:0;background:#fff}
 <button id="home" onclick="goHome()" title="Home">⌂</button>
 <button id="stop" onclick="stopGen()" disabled style="background:#a40e26;border-color:#a40e26">Stop</button>
 <select id="model" onchange="switchModel()" title="AI model"></select>
+<label title="Session memory: send last pages as context"><input type="checkbox" id="usemem" checked style="width:auto">Mem</label>
 <input type="range" id="temp" min="0" max="1.2" step="0.1" value="0.6" title="Temperature: lower = obedient, higher = unhinged" style="width:90px;vertical-align:middle" oninput="document.getElementById('tempv').textContent=this.value"><span id="tempv" title="Temperature">0.6</span>
 </nav>
 <div id="status">Enter a URL and a year, then Query Reality.</div>
@@ -139,7 +140,7 @@ async function query(){
   st.textContent='Contacting alternate '+year+'…';
   try{
     const r=await fetch('/api/query',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({url,year:parseInt(year),temp:parseFloat(document.getElementById('temp').value),context:hist.slice(-2).map(function(s){return{url:s.url,year:s.year,excerpt:textExcerpt(s.html)};})}),signal:ctrl.signal});
+      body:JSON.stringify({url,year:parseInt(year),temp:parseFloat(document.getElementById('temp').value),context:document.getElementById('usemem').checked?hist.slice(-2).map(function(s){return{url:s.url,year:s.year,excerpt:textExcerpt(s.html)};}):[]}),signal:ctrl.signal});
     if(!r.ok)throw new Error('HTTP '+r.status);
     const rd=r.body.getReader(),dec=new TextDecoder();let buf='';
     while(true){
@@ -180,7 +181,9 @@ def build_messages(url: str, year: int, context: list | None = None,
                    simple: bool = False) -> list:
     extra = ""
     u = url.lower()
-    if "google" in u:
+    # Descriptive page briefs read as page CONTENT to weak models (they print
+    # the directions), so simple mode gets the skeleton only.
+    if "google" in u and not simple:
         if "search" in u:
             extra = (
                 " This is a Google RESULTS page: Google logo header, large search box "
