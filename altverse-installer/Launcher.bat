@@ -49,15 +49,24 @@ if errorlevel 1 (
   )
 )
 
-:: 3. CUDA backend + model (each step skips fast when already done)
-%LEMONADE% backends install llamacpp:cuda
+:: 3. GPU backend: NVIDIA -> cuda, anything else -> vulkan. Then model.
+nvidia-smi -L >nul 2>&1
+if errorlevel 1 (set BACKEND=vulkan) else (set BACKEND=cuda)
+echo [AltVerse] backend=%BACKEND%
+call "%~dp0CudaWin10.bat"
 if errorlevel 1 (
-  echo [AltVerse] CUDA backend install failed. Windows 11 22H2+ is required.
+  echo [AltVerse] automatic CUDA setup failed, see above.
+  pause
+  exit /b 1
+)
+%LEMONADE% backends install llamacpp:%BACKEND%
+if errorlevel 1 (
+  echo [AltVerse] GPU backend install failed.
   pause
   exit /b 1
 )
 %LEMONADE% pull %ALTVERSE_MODEL%
-%LEMONADE% load %ALTVERSE_MODEL% --llamacpp cuda --ctx-size %ALTVERSE_CTX% --llamacpp-args "--flash-attn on --parallel 1 --cache-type-k q8_0 --cache-type-v q8_0" --save-options --pinned
+%LEMONADE% load %ALTVERSE_MODEL% --llamacpp %BACKEND% --ctx-size %ALTVERSE_CTX% --llamacpp-args "--flash-attn on --parallel 1 --cache-type-k q8_0 --cache-type-v q8_0" --save-options --pinned
 
 :: 4. start the app minimized
 start "AltVerse Server" /min %PY% app.py

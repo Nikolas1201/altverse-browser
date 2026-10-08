@@ -3,6 +3,9 @@ cd /d "%~dp0"
 <model.txt (set /p DL_MODEL=&set /p DL_CTX=)
 echo [AltVerse] downloading %DL_MODEL% ...
 echo [AltVerse] big models take a while. Leave this window open.
+nvidia-smi -L >nul 2>&1
+if errorlevel 1 (set BACKEND=vulkan) else (set BACKEND=cuda)
+echo [AltVerse] backend=%BACKEND%
 set LEMONADE=lemonade
 where lemonade >nul 2>&1
 if errorlevel 1 (
@@ -27,7 +30,18 @@ if errorlevel 1 (
     )
   )
 )
-%LEMONADE% backends install llamacpp:cuda
+call "%~dp0CudaWin10.bat"
+if errorlevel 1 (
+  echo [AltVerse] automatic CUDA setup failed, see above.
+  pause
+  exit /b 1
+)
+%LEMONADE% backends install llamacpp:%BACKEND%
+if errorlevel 1 (
+  echo [AltVerse] GPU backend install failed.
+  pause
+  exit /b 1
+)
 %LEMONADE% pull %DL_MODEL%
 echo [AltVerse] model ready. You can close this window.
 pause

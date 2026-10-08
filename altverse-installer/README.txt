@@ -28,6 +28,7 @@ Save the file and launch again. The model downloads on first use.
 
 TROUBLESHOOTING:
 - "lemonade: command not found" -> install Lemonade Server (step 2).
-- CUDA backend fails on Windows 10 -> upgrade to Windows 11 22H2+.
+- GPU backend is picked automatically: NVIDIA cards use CUDA,
+  anything else uses Vulkan (works on AMD, Intel, older cards).
 - Pages take minutes -> normal on small GPUs; the 30B wants 16GB+ VRAM.
 - Port 5057 busy -> close the other AltVerse window first.

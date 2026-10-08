@@ -18,6 +18,7 @@ WizardStyle=modern
 Source: "..\altverse\app.py"; DestDir: "{app}"; Flags: ignoreversion
 Source: "Launcher.bat"; DestDir: "{app}"; DestName: "AltVerse.bat"; Flags: ignoreversion
 Source: "DownloadModel.bat"; DestDir: "{app}"; Flags: ignoreversion
+Source: "CudaWin10.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "icon.ico"; DestDir: "{app}"; Flags: ignoreversion
 Source: "README.txt"; DestDir: "{app}"; Flags: ignoreversion
 

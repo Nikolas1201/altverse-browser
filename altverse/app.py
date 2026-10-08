@@ -19,6 +19,21 @@ from flask import Flask, Response, request, stream_with_context
 
 LEMONADE_BASE = "http://127.0.0.1:13305/v1"
 MODEL = os.environ.get("ALTVERSE_MODEL", "Qwen3-4B-Instruct-2507-GGUF")
+
+
+def detect_backend() -> str:
+    """NVIDIA present -> cuda, anything else -> vulkan."""
+    try:
+        r = subprocess.run(["nvidia-smi", "-L"], capture_output=True,
+                           text=True, timeout=15)
+        if r.returncode == 0 and r.stdout.strip():
+            return "cuda"
+    except Exception:  # noqa: BLE001 - no NVIDIA driver, fall through
+        pass
+    return "vulkan"
+
+
+BACKEND = os.environ.get("ALTVERSE_BACKEND", detect_backend())
 MAX_TOKENS = 3600
 TIMEOUT = 600
 
@@ -254,7 +269,7 @@ def _do_switch(model_id: str, ctx: int):
             subprocess.run(["lemonade", "unload", prev],
                            capture_output=True, text=True, timeout=300)
         r = subprocess.run(
-            ["lemonade", "load", model_id, "--llamacpp", "cuda",
+            ["lemonade", "load", model_id, "--llamacpp", BACKEND,
              "--ctx-size", str(ctx), "--llamacpp-args", LLAMACPP_ARGS,
              "--save-options"],
             capture_output=True, text=True, timeout=1200,
@@ -375,5 +390,5 @@ def render_once():
 
 
 if __name__ == "__main__":
-    print(f"Model: {MODEL} via {LEMONADE_BASE} @ ~34 tok/s")
+    print(f"Model: {MODEL} via {LEMONADE_BASE} @ backend={BACKEND}")
     app.run(host="127.0.0.1", port=5057, threaded=True)
