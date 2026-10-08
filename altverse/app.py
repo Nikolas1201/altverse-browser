@@ -39,12 +39,25 @@ TIMEOUT = 600
 
 LLAMACPP_ARGS = "--flash-attn on --parallel 1 --cache-type-k q8_0 --cache-type-v q8_0 --threads 5 --threads-batch 5"
 MODEL_PRESETS = {
-    "Qwen3-4B-Instruct-2507-GGUF": {"ctx": 4096},
-    "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M": {"ctx": 8192},
-    "Qwen3-0.6B-GGUF": {"ctx": 2048},
+    "Qwen3-4B-Instruct-2507-GGUF": {"ctx": 4096, "temp": 0.6, "max": 3600},
+    "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M": {"ctx": 8192, "temp": 0.7, "max": 3600},
+    "Qwen3-0.6B-GGUF": {"ctx": 2048, "temp": 0.2, "max": 700, "simple": True},
 }
+DEFAULT_TEMP, DEFAULT_MAX = 0.6, 3600
 _current = {"id": MODEL}
-_switch = {"state": "idle", "detail": ""}  # 4B @ ~34 tok/s finishes a page in well under this
+_switch = {"state": "idle", "detail": ""}
+
+
+def _gen_params(model_id: str, data: dict) -> tuple:
+    """Per-model generation tuning: preset temp/cap, overridable per request."""
+    preset = MODEL_PRESETS.get(model_id, {})
+    try:
+        temp = float(data.get("temp", preset.get("temp", DEFAULT_TEMP)))
+    except (TypeError, ValueError):
+        temp = preset.get("temp", DEFAULT_TEMP)
+    temp = max(0.0, min(2.0, temp))
+    max_tok = min(int(preset.get("max", DEFAULT_MAX)), MAX_TOKENS)
+    return temp, max_tok, bool(preset.get("simple", False))  # 4B @ ~34 tok/s finishes a page in well under this
 
 SYSTEM_PROMPT = (
     "You are a web rendering engine from an alternate timeline. "
@@ -94,6 +107,7 @@ iframe{width:100%;height:calc(100vh - 130px);border:0;background:#fff}
 <button id="home" onclick="goHome()" title="Home">⌂</button>
 <button id="stop" onclick="stopGen()" disabled style="background:#a40e26;border-color:#a40e26">Stop</button>
 <select id="model" onchange="switchModel()" title="AI model"></select>
+<input type="range" id="temp" min="0" max="1.2" step="0.1" value="0.6" title="Temperature: lower = obedient, higher = unhinged" style="width:90px;vertical-align:middle" oninput="document.getElementById('tempv').textContent=this.value"><span id="tempv" title="Temperature">0.6</span>
 </nav>
 <div id="status">Enter a URL and a year, then Query Reality.</div>
 <iframe id="view" sandbox="allow-scripts" srcdoc="<body style='background:#fff;color:#888;font-family:sans-serif'><p style='padding:40px'>The void awaits your query&hellip;</p>"></iframe>
@@ -113,7 +127,7 @@ function goBack(){if(hi>0){hi--;restore();}}
 function goFwd(){if(hi<hist.length-1){hi++;restore();}}
 function goHome(){document.getElementById('url').value='google.com';document.getElementById('year').value=new Date().getFullYear();query();}
 window.addEventListener('load',function(){document.getElementById('url').value='google.com';document.getElementById('year').value=new Date().getFullYear();loadModels();query();});
-async function loadModels(){try{var r=await fetch('/api/models');var j=await r.json();var s=document.getElementById('model');s.innerHTML='';j.models.forEach(function(m){var o=document.createElement('option');o.value=m;o.textContent=m.length>30?m.slice(0,30)+'…':m;if(m===j.current)o.selected=true;s.appendChild(o);});}catch(e){}}
+async function loadModels(){try{var r=await fetch('/api/models');var j=await r.json();window.mdefs=j.defaults||{};var s=document.getElementById('model');s.innerHTML='';j.models.forEach(function(m){var o=document.createElement('option');o.value=m;o.textContent=m.length>30?m.slice(0,30)+'…':m;if(m===j.current)o.selected=true;s.appendChild(o);});var d=window.mdefs[j.current];if(d&&d.temp!==undefined){document.getElementById('temp').value=d.temp;document.getElementById('tempv').textContent=d.temp;}}catch(e){}}
 async function switchModel(){var m=document.getElementById('model').value;var st=document.getElementById('status');document.getElementById('model').disabled=true;st.textContent='Loading '+m+' — minutes for big models…';try{await fetch('/api/switch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:m})});}catch(e){st.textContent='Error: '+e;document.getElementById('model').disabled=false;return;}var iv=setInterval(async function(){try{var r=await fetch('/api/switch-status');var j=await r.json();if(j.state==='loading'){st.textContent='Loading '+j.detail+'…';}else{clearInterval(iv);document.getElementById('model').disabled=false;st.textContent=(j.state==='ready'?'Model ready: ':'Switch failed: ')+j.detail;loadModels();}}catch(e){clearInterval(iv);document.getElementById('model').disabled=false;}},3000);}
 async function query(){
   if(document.getElementById('go').disabled)return;
@@ -125,7 +139,7 @@ async function query(){
   st.textContent='Contacting alternate '+year+'…';
   try{
     const r=await fetch('/api/query',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({url,year:parseInt(year),context:hist.slice(-2).map(function(s){return{url:s.url,year:s.year,excerpt:textExcerpt(s.html)};})}),signal:ctrl.signal});
+      body:JSON.stringify({url,year:parseInt(year),temp:parseFloat(document.getElementById('temp').value),context:hist.slice(-2).map(function(s){return{url:s.url,year:s.year,excerpt:textExcerpt(s.html)};})}),signal:ctrl.signal});
     if(!r.ok)throw new Error('HTTP '+r.status);
     const rd=r.body.getReader(),dec=new TextDecoder();let buf='';
     while(true){
@@ -162,7 +176,8 @@ async function query(){
 app = Flask(__name__)
 
 
-def build_messages(url: str, year: int, context: list | None = None) -> list:
+def build_messages(url: str, year: int, context: list | None = None,
+                   simple: bool = False) -> list:
     extra = ""
     u = url.lower()
     if "google" in u:
@@ -200,6 +215,12 @@ def build_messages(url: str, year: int, context: list | None = None) -> list:
                 "version numbers, and facts. The new page continues their story."
             )
     user_text += " Raw HTML only."
+    if simple:
+        user_text += (
+            " Small model mode: follow this exact skeleton in order and stop: "
+            "1) centered site-name headline, 2) a search form, "
+            "3) at least 3 blue <a href> links each with a one-line description."
+        )
     return [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": user_text},
@@ -298,7 +319,10 @@ def list_models():
         ids = []
     if _current["id"] not in ids:
         ids = [_current["id"]] + ids
-    return {"models": ids, "current": _current["id"]}
+    defaults = {mid: {"temp": MODEL_PRESETS.get(mid, {}).get("temp", DEFAULT_TEMP),
+                      "max": min(int(MODEL_PRESETS.get(mid, {}).get("max", DEFAULT_MAX)), MAX_TOKENS)}
+                for mid in ids}
+    return {"models": ids, "current": _current["id"], "defaults": defaults}
 
 
 @app.post("/api/switch")
@@ -331,14 +355,15 @@ def query():
     except (TypeError, ValueError):
         year = 1999
     context = data.get("context") or []
+    temp, max_tok, simple = _gen_params(_current["id"], data)
 
     upstream = requests.post(
         f"{LEMONADE_BASE}/chat/completions",
         json={
             "model": _current["id"],
-            "messages": build_messages(url, year, context),
-            "max_tokens": MAX_TOKENS,
-            "temperature": 0.6,
+            "messages": build_messages(url, year, context, simple),
+            "max_tokens": max_tok,
+            "temperature": temp,
             "stream": True,
         },
         stream=True,
@@ -375,13 +400,14 @@ def render_once():
     except (TypeError, ValueError):
         year = 1999
     context = data.get("context") or []
+    temp, max_tok, simple = _gen_params(_current["id"], data)
     r = requests.post(
         f"{LEMONADE_BASE}/chat/completions",
         json={
             "model": _current["id"],
-            "messages": build_messages(url, year, context),
-            "max_tokens": MAX_TOKENS,
-            "temperature": 0.6,
+            "messages": build_messages(url, year, context, simple),
+            "max_tokens": max_tok,
+            "temperature": temp,
         },
         timeout=TIMEOUT,
     )
