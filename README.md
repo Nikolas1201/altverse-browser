@@ -4,7 +4,7 @@ A local, offline AI "alternate universe browser". Type any URL + year and a
 local LLM hallucinates the entire webpage — then browse it: clickable links,
 working search, back/forward history, per-timeline memory.
 
-![Requires Windows + NVIDIA GPU](https://img.shields.io/badge/Windows-NVIDIA-green)
+![Windows 10/11, any GPU](https://img.shields.io/badge/Windows-CUDA_or_Vulkan-green)
 
 ## Install (cousin-proof)
 
@@ -14,7 +14,9 @@ working search, back/forward history, per-timeline memory.
 3. It installs Python + Lemonade Server itself if missing, downloads the
    model, and launches. Close the browser window and the server quits too.
 
-Needs: Windows 11 recommended, NVIDIA GPU, internet (first launch downloads
+Needs: Windows 10 or 11, any GPU (NVIDIA cards use CUDA, everything else
+uses Vulkan — no CUDA toolkit to install, no Windows 11 required), internet
+(first launch downloads
 the model: 2.4 GB for the 4B, ~17 GB for the 30B).
 
 ## How it works
