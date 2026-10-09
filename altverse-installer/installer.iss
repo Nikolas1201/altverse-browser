@@ -1,6 +1,6 @@
 ; AltVerse Browser installer - includes a model picker wizard page.
 #define MyAppName "AltVerse Browser"
-#define MyAppVersion "1.0"
+#define MyAppVersion "1.3.1"
 
 [Setup]
 AppName={#MyAppName}
@@ -34,11 +34,15 @@ Filename: "{app}\AltVerse.bat"; Description: "Launch AltVerse Browser now"; Flag
 [Code]
 var
   ModelPage: TWizardPage;
+  UpdatePage: TWizardPage;
+  RadioUpdate, RadioFresh: TRadioButton;
   RadioOpts: array of TRadioButton;
   OptModels: array of String;
   OptCtx: array of String;
   OptCount: Integer;
   VRAM_MB: Integer;
+  PrevFound: Boolean;
+  PrevDir, PrevModel: String;
 
 function CmdOk(const Cmd: String): Boolean;
 var
@@ -178,12 +182,85 @@ begin
     end;
 end;
 
+function FindModelExact(const ID: String): Integer;
+var
+  I: Integer;
+begin
+  Result := -1;
+  for I := 0 to OptCount - 1 do
+    if CompareText(OptModels[I], ID) = 0 then
+    begin
+      Result := I;
+      Exit;
+    end;
+end;
+
+procedure DetectPreviousInstall;
+var
+  Cands: array of String;
+  I, P: Integer;
+  Content: AnsiString;
+begin
+  PrevFound := False;
+  PrevDir := '';
+  PrevModel := '';
+  SetLength(Cands, 3);
+  Cands[0] := ExpandConstant('{autopf}\AltVerse\AltVerse.bat');
+  Cands[1] := ExpandConstant('{localappdata}\Programs\AltVerse\AltVerse.bat');
+  Cands[2] := ExpandConstant('{pf}\AltVerse\AltVerse.bat');
+  for I := 0 to 2 do
+    if FileExists(Cands[I]) then
+    begin
+      PrevFound := True;
+      PrevDir := ExtractFileDir(Cands[I]);
+      if LoadStringFromFile(PrevDir + '\model.txt', Content) then
+      begin
+        P := Pos(#10, Content);
+        if P > 0 then Content := Copy(Content, 1, P - 1);
+        PrevModel := Trim(Content);
+      end;
+      Exit;
+    end;
+end;
+
+function IsFreshInstall(): Boolean;
+begin
+  Result := True;
+  if PrevFound then Result := RadioFresh.Checked;
+end;
+
 procedure InitializeWizard;
 var
   Desc: TNewStaticText;
   RecIdx: Integer;
 begin
   VRAM_MB := DetectVRAM_MB();
+  DetectPreviousInstall();
+  if PrevFound then
+  begin
+    UpdatePage := CreateCustomPage(wpWelcome,
+      'Previous installation found', 'Update instead of starting over.');
+    Desc := TNewStaticText.Create(UpdatePage);
+    Desc.Parent := UpdatePage.Surface;
+    Desc.Left := 0; Desc.Top := 0;
+    Desc.Width := UpdatePage.SurfaceWidth;
+    Desc.Height := 60;
+    Desc.Caption := 'Found AltVerse at:' + #13#10 + PrevDir
+      + #13#10 + 'Update keeps everything working. Fresh install resets logs.';
+    Desc.WordWrap := True;
+    Desc.AutoSize := False;
+    RadioUpdate := TRadioButton.Create(UpdatePage);
+    RadioUpdate.Parent := UpdatePage.Surface;
+    RadioUpdate.Left := 0; RadioUpdate.Top := 68;
+    RadioUpdate.Width := UpdatePage.SurfaceWidth;
+    RadioUpdate.Caption := 'Update (recommended)';
+    RadioUpdate.Checked := True;
+    RadioFresh := TRadioButton.Create(UpdatePage);
+    RadioFresh.Parent := UpdatePage.Surface;
+    RadioFresh.Left := 0; RadioFresh.Top := 94;
+    RadioFresh.Width := UpdatePage.SurfaceWidth;
+    RadioFresh.Caption := 'Fresh install';
+  end;
   ModelPage := CreateCustomPage(wpSelectDir,
     'AI Model', 'Which brain should AltVerse use?');
   Desc := TNewStaticText.Create(ModelPage);
@@ -211,6 +288,11 @@ begin
   if RecIdx < 0 then RecIdx := 0;
   RadioOpts[RecIdx].Caption := RadioOpts[RecIdx].Caption + ' (recommended)';
   RadioOpts[RecIdx].Checked := True;
+  if PrevFound and (PrevModel <> '') then
+  begin
+    RecIdx := FindModelExact(PrevModel);
+    if RecIdx >= 0 then RadioOpts[RecIdx].Checked := True;
+  end;
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
@@ -235,5 +317,7 @@ begin
     Idx := SelectedIdx();
     SaveStringToFile(ExpandConstant('{app}\model.txt'),
       OptModels[Idx] + #13#10 + OptCtx[Idx] + #13#10, False);
+    if IsFreshInstall() then
+      DeleteFile(ExpandConstant('{app}\server.log'));
   end;
 end;

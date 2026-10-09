@@ -6,6 +6,10 @@ INSTALL: run AltVerseSetup.exe, pick a model on the AI Model page
 "Download the AI model now" checked, and it launches by itself.
 Two clicks, then everything works.
 
+UPDATING: run any newer AltVerseSetup.exe and it finds the old install
+itself (all the way back to v1.0.0). Pick Update to keep everything working
+or Fresh install to reset logs. Your picked model stays selected.
+
 WHAT YOU NEED: almost nothing.
 Python and Lemonade Server install themselves during setup
 (approve the admin prompts). Then it downloads the model and launches.
