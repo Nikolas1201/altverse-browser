@@ -89,13 +89,17 @@ PAGE = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Alternate Universe Browser</title>
 <style>
 body{background:#f0f0f4;color:#15141a;font-family:system-ui,"Segoe UI",Arial,sans-serif;margin:0}
-#tabstrip{display:flex;align-items:flex-end;gap:4px;padding:8px 10px 0;background:#e2e0e8}
-#tab{background:#f0f0f4;border-radius:10px 10px 0 0;padding:8px 12px;font-size:13px;display:flex;gap:10px;align-items:center;max-width:300px;white-space:nowrap;overflow:hidden}
-#tabx{cursor:pointer;color:#6d6d80;border-radius:4px;padding:0 4px}
-#tabx:hover{background:#d8d6e0}
+#tabstrip{display:flex;align-items:flex-end;gap:2px;padding:8px 10px 0;background:#dcd9e2}
+.tab{background:transparent;border-radius:10px 10px 0 0;padding:8px 12px;font-size:13px;display:flex;gap:10px;align-items:center;max-width:300px;white-space:nowrap;overflow:hidden;cursor:pointer;color:#4a4a55}
+.tab:not(.active){border-left:1px solid #c0bec8}
+.tab:not(.active):hover{background:#d2cfd9}
+.tab.active{background:#ffffff;border:1px solid #cfcfd8;border-bottom:0;color:#15141a}
+.tablabel{overflow:hidden;text-overflow:ellipsis}
+.tabx{cursor:pointer;color:#6d6d80;border-radius:4px;padding:0 4px;flex:none}
+.tabx:hover{background:#d8d6e0}
 #newtab{cursor:pointer;color:#4a4a55;font-size:18px;padding:2px 8px;border-radius:6px}
 #newtab:hover{background:#d8d6e0}
-#toolbar{display:flex;gap:2px;padding:8px 10px;background:#f0f0f4;align-items:center}
+#toolbar{display:flex;gap:2px;padding:8px 10px;background:#ffffff;align-items:center}
 button{background:transparent;border:0;color:#15141a;font-size:16px;padding:7px 9px;border-radius:7px;cursor:pointer}
 button:hover:not(:disabled){background:#dcdce4}
 button:disabled{opacity:.35;cursor:default}
