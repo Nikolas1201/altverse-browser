@@ -51,9 +51,12 @@ if errorlevel 1 (
 )
 
 REM 3. GPU backend: NVIDIA -> cuda, anything else -> vulkan. Then model.
-nvidia-smi -L >nul 2>&1
-if errorlevel 1 (set BACKEND=vulkan) else (set BACKEND=cuda)
-echo [AltVerse] backend=%BACKEND%
+nvidia-smi --query-gpu=name --format=csv,noheader,nounits > "%TEMP%\altverse-gpu.txt" 2>nul
+set GPUINFO=none
+if exist "%TEMP%\altverse-gpu.txt" set /p GPUINFO=<"%TEMP%\altverse-gpu.txt"
+del "%TEMP%\altverse-gpu.txt" 2>nul
+if "%GPUINFO%"=="none" (set BACKEND=vulkan) else (set BACKEND=cuda)
+echo [AltVerse] gpu=%GPUINFO% backend=%BACKEND%
 call "%~dp0CudaWin10.bat"
 if errorlevel 1 (
   echo [AltVerse] automatic CUDA setup failed, see above.
