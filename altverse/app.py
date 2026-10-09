@@ -310,6 +310,20 @@ def build_messages(url: str, year: int, context: list | None = None,
                 "Lucky', minimal footer links (About, Privacy, Terms). An era-appropriate "
                 "doodle above the logo is welcome. The Search button submits the form."
             )
+    if "youtube" in u:
+        if "watch" in u or "v=" in u:
+            extra += (
+                " Build a YouTube WATCH page: big black video player rectangle, "
+                "bold video title below it, Like Dislike Share buttons, "
+                "3 viewer comments with usernames."
+            )
+        else:
+            extra += (
+                " Build a YouTube HOMEPAGE: red YOUTUBE logo top-left, one search box, "
+                "a grid of 6 video boxes. Each box: colored thumbnail rectangle, "
+                "bold title line, gray view-count line. Sidebar links: "
+                "Home, Shorts, Subscriptions."
+            )
     user_text = (
         f"URL: {url}\nYear: {year}\n"
         f"Render what {url} looked like (or will look like) in {year} "
