@@ -100,6 +100,15 @@ body{background:#f0f0f4;color:#15141a;font-family:system-ui,"Segoe UI",Arial,san
 .tabx:hover{background:#d8d6e0}
 #newtab{cursor:pointer;color:#4a4a55;font-size:18px;padding:2px 8px;border-radius:6px}
 #newtab:hover{background:#d8d6e0}
+.hfrow{padding:10px 6px;border-bottom:1px solid #ddd;border-radius:8px}
+.hfrow:hover{background:#e9e8ef}
+.hfbtn{background:#0060df;color:#fff;border:0;border-radius:6px;padding:5px 12px;font-size:13px;cursor:pointer}
+.hfbtn:hover{background:#004fc4}
+.hfimp{background:#238636}
+.hfimp:hover{background:#1c6e2c}
+.hfdl{display:inline-block;background:#dff5e1;color:#1a7f37;border-radius:10px;padding:2px 8px;font-size:12px;margin-left:6px}
+.hffile{padding:3px 0 3px 12px;border-radius:6px}
+.hffile:hover{background:#e9e8ef}
 @keyframes tabIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:none}}
 .tab.fresh{animation:tabIn .22s ease-out}
 .tab .dot{animation:pulse 1.1s ease-in-out infinite;color:#0060df;font-weight:bold;margin-left:2px}
@@ -277,40 +286,10 @@ function goHome(){var t=activeTab();if(!t)return;if(t.ctrl){try{t.ctrl.abort();}
 window.addEventListener('load',function(){loadModels();newTab();});
 async function loadModels(){try{var r=await fetch('/api/models');var j=await r.json();window.mdefs=j.defaults||{};var s=document.getElementById('model');s.innerHTML='';j.models.forEach(function(m){var o=document.createElement('option');o.value=m;o.textContent=m.length>30?m.slice(0,30)+'…':m;if(m===j.current)o.selected=true;s.appendChild(o);});var d=window.mdefs[j.current];if(d&&d.temp!==undefined){document.getElementById('temp').value=d.temp;document.getElementById('tempv').textContent=d.temp;}}catch(e){}}
 async function switchModel(){var m=document.getElementById('model').value;var st=document.getElementById('status');document.getElementById('model').disabled=true;st.textContent='Loading '+m+' — minutes for big models…';try{await fetch('/api/switch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:m})});}catch(e){st.textContent='Error: '+e;document.getElementById('model').disabled=false;return;}var iv=setInterval(async function(){try{var r=await fetch('/api/switch-status');var j=await r.json();if(j.state==='loading'){st.textContent='Loading '+j.detail+'…';}else{clearInterval(iv);document.getElementById('model').disabled=false;st.textContent=(j.state==='ready'?'Model ready: ':'Switch failed: ')+j.detail;loadModels();}}catch(e){clearInterval(iv);document.getElementById('model').disabled=false;}},3000);}
-function openHf(){document.getElementById('hfmodal').style.display='block';document.getElementById('hfq').focus();window._hfFlat=[];}
+async function openHf(){document.getElementById('hfmodal').style.display='block';document.getElementById('hfq').focus();window._hfFlat=[];try{var r=await fetch('/api/models');var j=await r.json();window._dlIds=(j.models||[]).map(function(m){return m.toLowerCase();});}catch(e){window._dlIds=[];}}
 function closeHf(){document.getElementById('hfmodal').style.display='none';}document.getElementById('hfres').addEventListener('click',function(e){var g=e.target.closest('button[data-hfgo]');if(g){hfFiles(+g.getAttribute('data-hfgo'));return;}var b=e.target.closest('button[data-hfimp]');if(b){var o=window._hfFlat[+b.getAttribute('data-hfimp')];if(o)hfImport(o.r,o.f,o.g,o.i);}});
-async function hfSearch(){
-  var q=document.getElementById('hfq').value.trim();
-  var box=document.getElementById('hfres');
-  if(q.length<2){box.textContent='Type at least 2 characters.';return;}
-  box.textContent='Searching...';
-  try{
-    var r=await fetch('/api/hf-search?q='+encodeURIComponent(q));
-    var j=await r.json();
-    if(!j.results||!j.results.length){box.textContent='No GGUF models found.';return;}
-    window._hfRepos=j.results.map(function(m){return m.id;});
-    var h='';
-    j.results.forEach(function(m,i){
-      h+='<div style="padding:8px 0;border-bottom:1px solid #ddd"><b>'+esc(m.id)+'</b><br><span style="color:#666">'+m.downloads+' downloads</span> <button style="background:#0060df;color:#fff;border-radius:6px;padding:4px 10px;font-size:13px" data-hfgo="'+i+'"</button><div id="hffiles'+i+'"></div></div>';
-    });
-    box.innerHTML=h;
-  }catch(e){box.textContent='Error: '+e;}
-}
-async function hfFiles(i){
-  var repo=window._hfRepos[i];
-  var div=document.getElementById('hffiles'+i);
-  div.textContent='Loading files...';
-  try{
-    var r=await fetch('/api/hf-files?repo='+encodeURIComponent(repo));
-    var j=await r.json();
-    if(!j.files||!j.files.length){div.textContent='No GGUF files in this repo.';return;}
-    var h='';
-    j.files.forEach(function(f){
-      h+='<div style="padding:3px 0 3px 12px">'+esc(f.file)+' <span style="color:#666">'+f.gb+' GB</span> <button style="background:#238636;color:#fff;border-radius:6px;padding:3px 10px;font-size:13px" data-hfimp="'+(window._hfFlat.push({r:repo,f:f.file,g:f.gb,i:i})-1)+'"</button></div>';
-    });
-    div.innerHTML=h+'<div id="hfstatus'+i+'" style="color:#666"></div>';
-  }catch(e){div.textContent='Error: '+e;}
-}
+async function hfSearch(){var q=document.getElementById('hfq').value.trim();var box=document.getElementById('hfres');if(q.length<2){box.textContent='Type at least 2 characters.';return;}box.textContent='Searching...';try{var r=await fetch('/api/hf-search?q='+encodeURIComponent(q));var j=await r.json();if(!j.results||!j.results.length){box.textContent='No GGUF models found.';return;}window._hfRepos=j.results.map(function(m){return m.id;});var h='';j.results.forEach(function(m,i){var base=(m.id.split('/')[1]||m.id).toLowerCase();var stem=base.replace(/[-_]gguf$/,'');var dl=(window._dlIds||[]).some(function(x){return x===base||x.indexOf(stem)===0||x.indexOf(base)>=0;});h+='<div class="hfrow"><div><b>'+esc(m.id)+'</b>'+(dl?'<span class="hfdl">\u2713 on this PC</span>':'')+'<br><span style="color:#666">'+m.downloads+' downloads</span> <button class="hfbtn" id="hftoggle'+i+'" onclick="hfFiles('+i+')">Show files \u25be</button></div><div id="hffiles'+i+'" style="display:none"></div></div>';});box.innerHTML=h;}catch(e){box.textContent='Error: '+e;}}
+async function hfFiles(i){var div=document.getElementById('hffiles'+i);var tog=document.getElementById('hftoggle'+i);if(div.dataset.loaded==='1'){var show=div.style.display==='none';div.style.display=show?'block':'none';tog.textContent=show?('Hide \u25b4 ('+div.dataset.n+')'):('Show files \u25be');return;}var repo=window._hfRepos[i];div.style.display='block';div.textContent='Loading files...';try{var r=await fetch('/api/hf-files?repo='+encodeURIComponent(repo));var j=await r.json();if(!j.files||!j.files.length){div.textContent='No GGUF files in this repo.';return;}div.dataset.loaded='1';div.dataset.n=j.files.length;tog.textContent='Hide \u25b4 ('+j.files.length+')';var h='';j.files.forEach(function(f){h+='<div class="hffile">'+esc(f.file)+' <span style="color:#666">'+f.gb+' GB</span> <button class="hfbtn hfimp" data-hfimp="'+(window._hfFlat.push({r:repo,f:f.file,g:f.gb,i:i})-1)+'">Import</button></div>';});div.innerHTML=h+'<div id="hfstatus'+i+'" style="color:#666"></div>';}catch(e){div.textContent='Error: '+e;}}
 async function hfImport(i,file,gb){
   var repo=window._hfRepos[i];
   var st=document.getElementById('hfstatus'+i);
