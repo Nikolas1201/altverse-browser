@@ -99,6 +99,11 @@ body{background:#f0f0f4;color:#15141a;font-family:system-ui,"Segoe UI",Arial,san
 .tabx:hover{background:#d8d6e0}
 #newtab{cursor:pointer;color:#4a4a55;font-size:18px;padding:2px 8px;border-radius:6px}
 #newtab:hover{background:#d8d6e0}
+@keyframes tabIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:none}}
+.tab.fresh{animation:tabIn .22s ease-out}
+.tab .dot{animation:pulse 1.1s ease-in-out infinite;color:#0060df;font-weight:bold;margin-left:2px}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+.tablabel{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 #toolbar{display:flex;gap:2px;padding:8px 10px;background:#ffffff;align-items:center}
 button{background:transparent;border:0;color:#15141a;font-size:16px;padding:7px 9px;border-radius:7px;cursor:pointer}
 button:hover:not(:disabled){background:#dcdce4}
@@ -212,12 +217,15 @@ var HOOK='<script>(function(){function q(f){var i=f.querySelector("input[type=te
 function setSrc(h){h=ensureCharset(h);if(/<\/body\s*>/i.test(h))h=h.replace(/<\/body\s*>/i,HOOK+'</body>');else h+=HOOK;document.getElementById('view').srcdoc=h;}
 function textExcerpt(h){var t=h.replace(/<script[\s\S]*?<\/script>/gi,' ').replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<[^>]+>/g,' ');return t.replace(/\s+/g,' ').trim().slice(0,600);}
 function scrubDisclaimers(h){return h.replace(/[^<>]*(?:fan fiction|satire|no actual shoes|fictional|fake entry|do not buy|do not seek|not affiliated|entertainment purposes only|important note\s*:)[^.]*\./gi,'');}
-window.addEventListener('message',function(e){var d=e.data||{};var u=document.getElementById('url').value.trim()||'example.com';if(d.t==='altverse-search'){if(d.q)u=u+'/search?q='+encodeURIComponent(d.q);document.getElementById('url').value=u;query();}else if(d.t==='altverse-nav'){document.getElementById('url').value=d.url;query();}});
+window.addEventListener('message',function(e){var d=e.data||{};var u=document.getElementById('url').value.trim()||'example.com';if(u==='home'){u='google.com';}if(d.t==='altverse-search'){if(d.q){u=u+'/search?q='+encodeURIComponent(d.q);}document.getElementById('url').value=u;query();}if(d.t==='altverse-nav'){document.getElementById('url').value=d.url;query();}});
 let tabs=[],activeId=0,nextId=1,genLock=null,genQueue=[];
+var freshTabs={},lastStripSig='';
+var HOMEHTML='<!DOCTYPE html><html><head><meta charset="utf-8"><title>New Timeline</title><style>body{margin:0;background:#f4f2fa;font-family:system-ui,Segoe UI,Arial,sans-serif;color:#15141a}main{max-width:620px;margin:11vh auto 0;text-align:center;padding:0 20px}h1{font-size:46px;margin:0 0 4px;font-weight:800}h1 .a{color:#0060df}p.sub{color:#5b5b66;margin:0 0 26px;font-size:15px}form{display:flex;gap:8px;justify-content:center}input[type=text]{flex:1;max-width:400px;padding:12px 18px;font-size:15px;border-radius:24px;border:1px solid #cfcfd8}button{padding:12px 22px;font-size:15px;border-radius:24px;border:0;background:#0060df;color:#fff;cursor:pointer}.tiles{display:flex;gap:10px;justify-content:center;margin-top:32px;flex-wrap:wrap}.tiles a{display:block;width:148px;padding:14px 8px;background:#fff;border:1px solid #e2e0e8;border-radius:12px;text-decoration:none;color:#15141a;font-size:13px}.tiles a b{display:block;font-size:14px;margin-bottom:4px}.tiles a span{color:#5b5b66;font-size:12px}</style></head><body><main><h1><span class="a">A</span>ltVerse</h1><p class="sub">Every timeline ever. None of it true.</p><form method="get" action="#"><input type="text" name="q" placeholder="Search the multiverse..."><button type="submit">Search</button></form><div class="tiles"><a href="youtube.com"><b>YouTube</b><span>Static &amp; loud</span></a><a href="myspace.com"><b>MySpace</b><span>Top 8 included</span></a><a href="google.com"><b>Google</b><span>Do the obvious</span></a></div></main></body></html>';
+function homeState(t){t.url='';t.year=new Date().getFullYear();t.hist=[{url:'home',year:'',html:HOMEHTML}];t.hi=0;t.html=HOMEHTML;t.toks=0;t.started=false;t.queued=false;t.ctrl=null;t.status='';t.dead=false;}
 var VOIDSRC="<body style='background:#fff;color:#888;font-family:sans-serif'><p style='padding:40px'>The void awaits your query&hellip;</p>";
 function activeTab(){for(var i=0;i<tabs.length;i++)if(tabs[i].id===activeId)return tabs[i];return null;}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-function renderTabs(){var h='';tabs.forEach(function(t){h+='<div class="tab'+(t.id===activeId?' active':'')+'" onclick="activateTab('+t.id+')"><span class="tablabel">'+esc(t.url||'New Timeline')+((t.started||t.queued)?' •':'')+'</span><span class="tabx" onclick="event.stopPropagation();closeTab('+t.id+')" title="Close tab">×</span></div>';});h+='<div id="newtab" onclick="newTab()" title="New timeline">+</div>';document.getElementById('tabstrip').innerHTML=h;}
+function renderTabs(){var sig=tabs.map(function(t){return t.id+':'+(t.id===activeId)+':'+(t.started||t.queued)+':'+t.url;}).join('|');if(sig===lastStripSig)return;lastStripSig=sig;var h='';tabs.forEach(function(t){var cls='tab'+(t.id===activeId?' active':'');if(freshTabs[t.id]){cls+=' fresh';delete freshTabs[t.id];}var dot=(t.started||t.queued)?'<span class="dot">\u2022</span>':'';h+='<div class="'+cls+'" onclick="activateTab('+t.id+')"><span class="tablabel">'+esc(t.url||'New Timeline')+'</span>'+dot+'<span class="tabx" onclick="event.stopPropagation();closeTab('+t.id+')" title="Close tab">\u00d7</span></div>';});h+='<div id="newtab" onclick="newTab()" title="New timeline">+</div>';document.getElementById('tabstrip').innerHTML=h;}
 function paintAll(){
   renderTabs();
   var t=activeTab();if(!t)return;
@@ -237,16 +245,10 @@ function activateTab(id){
   document.getElementById('year').value=t.year;
   if(t.html)setSrc(t.html);
   else document.getElementById('view').srcdoc=VOIDSRC;
-  document.title=t.hist.length?(t.url+' ('+t.year+') — Alternate Universe Browser'):'Alternate Universe Browser';
+  document.title=t.url?(t.url+' ('+t.year+') - Alternate Universe Browser'):'Alternate Universe Browser';
   paintAll();
 }
-function newTab(url,year,autogo){
-  var t={id:nextId++,url:url||'google.com',year:(year||new Date().getFullYear()),hist:[],hi:-1,html:'',toks:0,started:false,queued:false,ctrl:null,status:'',gen:0,dead:false};
-  tabs.push(t);activateTab(t.id);
-  if(autogo===false){t.status='New timeline — enter a URL or hit Query Reality.';paintAll();}
-  else requestGen(t);
-  return t;
-}
+function newTab(){var t={id:nextId++,gen:0};homeState(t);tabs.push(t);freshTabs[t.id]=1;activateTab(t.id);return t;}
 function closeTab(id){
   var i=-1;for(var k=0;k<tabs.length;k++)if(tabs[k].id===id)i=k;
   if(i<0)return;
@@ -257,15 +259,15 @@ function closeTab(id){
   tabs.splice(i,1);
   if(activeId===id){
     if(tabs.length)activateTab(tabs[Math.min(i,tabs.length-1)].id);
-    else newTab('google.com',new Date().getFullYear(),false);
+    else newTab();
   }else{renderTabs();}
   pumpQueue();
 }
 function restore(){var t=activeTab();if(!t||t.hi<0||t.hi>=t.hist.length)return;var s=t.hist[t.hi];document.getElementById('url').value=s.url;document.getElementById('year').value=s.year;t.url=s.url;t.year=s.year;setSrc(s.html);document.title=s.url+' ('+s.year+') — Alternate Universe Browser';paintAll();}
 function goBack(){var t=activeTab();if(t&&t.hi>0){t.hi--;restore();}}
 function goFwd(){var t=activeTab();if(t&&t.hi<t.hist.length-1){t.hi++;restore();}}
-function goHome(){var t=activeTab();if(!t)return;document.getElementById('url').value='google.com';document.getElementById('year').value=new Date().getFullYear();query();}
-window.addEventListener('load',function(){loadModels();newTab('google.com',new Date().getFullYear(),true);});
+function goHome(){var t=activeTab();if(!t)return;if(t.ctrl){try{t.ctrl.abort();}catch(e){}t.ctrl=null;t.started=false;t.queued=false;t.gen=(t.gen||0)+1;if(genLock===t.id)genLock=null;}genQueue=genQueue.filter(function(x){return x!==t.id;});homeState(t);activateTab(t.id);pumpQueue();}
+window.addEventListener('load',function(){loadModels();newTab();});
 async function loadModels(){try{var r=await fetch('/api/models');var j=await r.json();window.mdefs=j.defaults||{};var s=document.getElementById('model');s.innerHTML='';j.models.forEach(function(m){var o=document.createElement('option');o.value=m;o.textContent=m.length>30?m.slice(0,30)+'…':m;if(m===j.current)o.selected=true;s.appendChild(o);});var d=window.mdefs[j.current];if(d&&d.temp!==undefined){document.getElementById('temp').value=d.temp;document.getElementById('tempv').textContent=d.temp;}}catch(e){}}
 async function switchModel(){var m=document.getElementById('model').value;var st=document.getElementById('status');document.getElementById('model').disabled=true;st.textContent='Loading '+m+' — minutes for big models…';try{await fetch('/api/switch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:m})});}catch(e){st.textContent='Error: '+e;document.getElementById('model').disabled=false;return;}var iv=setInterval(async function(){try{var r=await fetch('/api/switch-status');var j=await r.json();if(j.state==='loading'){st.textContent='Loading '+j.detail+'…';}else{clearInterval(iv);document.getElementById('model').disabled=false;st.textContent=(j.state==='ready'?'Model ready: ':'Switch failed: ')+j.detail;loadModels();}}catch(e){clearInterval(iv);document.getElementById('model').disabled=false;}},3000);}
 async function query(){
