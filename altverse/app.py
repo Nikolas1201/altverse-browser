@@ -11,6 +11,7 @@ import json
 import os
 import re
 import subprocess
+import tempfile
 import threading
 import time
 
@@ -133,9 +134,15 @@ iframe{width:100%;height:calc(100vh - 196px);border:0;background:#fff;display:bl
 <button id="go" onclick="query()">Query Reality</button>
 <button id="stop" onclick="stopGen()" disabled>Stop</button>
 <select id="model" onchange="switchModel()" title="AI model"></select>
+<button id="hfbtn" onclick="openHf()" title="Add model from HuggingFace">+</button>
 <label title="Session memory: send last pages as context"><input type="checkbox" id="usemem" checked style="width:auto">Mem</label>
 <input type="range" id="temp" min="0" max="1.2" step="0.1" value="0.6" title="Temperature: lower = obedient, higher = unhinged" oninput="document.getElementById('tempv').textContent=this.value"><span id="tempv" title="Temperature">0.6</span>
 </div>
+<div id="hfmodal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.45);z-index:50">
+<div style="background:#f0f0f4;color:#15141a;max-width:640px;margin:8vh auto;padding:18px;border-radius:14px;max-height:80vh;overflow:auto">
+<div style="display:flex;gap:8px"><input id="hfq" placeholder="Search HuggingFace GGUFs..." style="flex:1;background:#fff;border:1px solid #cfcfd8;border-radius:8px;padding:8px 12px;font-size:14px;color:#15141a" onkeydown="if(event.key==='Enter')hfSearch()"><button id="hfgo" onclick="hfSearch()" style="background:#0060df;color:#fff;border-radius:8px;padding:8px 14px;font-size:14px">Search</button><button onclick="closeHf()" title="Close" style="background:#d8d6e0;border-radius:8px;padding:8px 12px;font-size:14px">X</button></div>
+<div id="hfres" style="margin-top:12px;font-size:14px"></div>
+</div></div>
 <div id="status">Enter a URL and a year, then Query Reality.</div>
 <iframe id="view" sandbox="allow-scripts" srcdoc="<body style='background:#fff;color:#888;font-family:sans-serif'><p style='padding:40px'>The void awaits your query&hellip;</p>"></iframe>
 <script>
@@ -270,6 +277,51 @@ function goHome(){var t=activeTab();if(!t)return;if(t.ctrl){try{t.ctrl.abort();}
 window.addEventListener('load',function(){loadModels();newTab();});
 async function loadModels(){try{var r=await fetch('/api/models');var j=await r.json();window.mdefs=j.defaults||{};var s=document.getElementById('model');s.innerHTML='';j.models.forEach(function(m){var o=document.createElement('option');o.value=m;o.textContent=m.length>30?m.slice(0,30)+'…':m;if(m===j.current)o.selected=true;s.appendChild(o);});var d=window.mdefs[j.current];if(d&&d.temp!==undefined){document.getElementById('temp').value=d.temp;document.getElementById('tempv').textContent=d.temp;}}catch(e){}}
 async function switchModel(){var m=document.getElementById('model').value;var st=document.getElementById('status');document.getElementById('model').disabled=true;st.textContent='Loading '+m+' — minutes for big models…';try{await fetch('/api/switch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:m})});}catch(e){st.textContent='Error: '+e;document.getElementById('model').disabled=false;return;}var iv=setInterval(async function(){try{var r=await fetch('/api/switch-status');var j=await r.json();if(j.state==='loading'){st.textContent='Loading '+j.detail+'…';}else{clearInterval(iv);document.getElementById('model').disabled=false;st.textContent=(j.state==='ready'?'Model ready: ':'Switch failed: ')+j.detail;loadModels();}}catch(e){clearInterval(iv);document.getElementById('model').disabled=false;}},3000);}
+function openHf(){document.getElementById('hfmodal').style.display='block';document.getElementById('hfq').focus();window._hfFlat=[];}
+function closeHf(){document.getElementById('hfmodal').style.display='none';}document.getElementById('hfres').addEventListener('click',function(e){var g=e.target.closest('button[data-hfgo]');if(g){hfFiles(+g.getAttribute('data-hfgo'));return;}var b=e.target.closest('button[data-hfimp]');if(b){var o=window._hfFlat[+b.getAttribute('data-hfimp')];if(o)hfImport(o.r,o.f,o.g,o.i);}});
+async function hfSearch(){
+  var q=document.getElementById('hfq').value.trim();
+  var box=document.getElementById('hfres');
+  if(q.length<2){box.textContent='Type at least 2 characters.';return;}
+  box.textContent='Searching...';
+  try{
+    var r=await fetch('/api/hf-search?q='+encodeURIComponent(q));
+    var j=await r.json();
+    if(!j.results||!j.results.length){box.textContent='No GGUF models found.';return;}
+    window._hfRepos=j.results.map(function(m){return m.id;});
+    var h='';
+    j.results.forEach(function(m,i){
+      h+='<div style="padding:8px 0;border-bottom:1px solid #ddd"><b>'+esc(m.id)+'</b><br><span style="color:#666">'+m.downloads+' downloads</span> <button style="background:#0060df;color:#fff;border-radius:6px;padding:4px 10px;font-size:13px" data-hfgo="'+i+'"</button><div id="hffiles'+i+'"></div></div>';
+    });
+    box.innerHTML=h;
+  }catch(e){box.textContent='Error: '+e;}
+}
+async function hfFiles(i){
+  var repo=window._hfRepos[i];
+  var div=document.getElementById('hffiles'+i);
+  div.textContent='Loading files...';
+  try{
+    var r=await fetch('/api/hf-files?repo='+encodeURIComponent(repo));
+    var j=await r.json();
+    if(!j.files||!j.files.length){div.textContent='No GGUF files in this repo.';return;}
+    var h='';
+    j.files.forEach(function(f){
+      h+='<div style="padding:3px 0 3px 12px">'+esc(f.file)+' <span style="color:#666">'+f.gb+' GB</span> <button style="background:#238636;color:#fff;border-radius:6px;padding:3px 10px;font-size:13px" data-hfimp="'+(window._hfFlat.push({r:repo,f:f.file,g:f.gb,i:i})-1)+'"</button></div>';
+    });
+    div.innerHTML=h+'<div id="hfstatus'+i+'" style="color:#666"></div>';
+  }catch(e){div.textContent='Error: '+e;}
+}
+async function hfImport(i,file,gb){
+  var repo=window._hfRepos[i];
+  var st=document.getElementById('hfstatus'+i);
+  st.textContent='Importing...';
+  try{
+    var r=await fetch('/api/hf-import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({repo:repo,file:file,gb:gb})});
+    var j=await r.json();
+    if(j.status==='imported'){st.textContent='Imported as '+j.model+'. Weights download on first use. Pick it from the model menu.';loadModels();}
+    else{st.textContent='Failed: '+(j.detail||j.status);}
+  }catch(e){st.textContent='Error: '+e;}
+}
 async function query(){
   if(document.getElementById('go').disabled)return;
   var t=activeTab();if(!t)return;
@@ -486,6 +538,93 @@ def switch_model():
 def switch_status():
     return {"state": _switch["state"], "detail": _switch.get("detail", ""),
             "current": _current["id"]}
+
+
+HF_API = "https://huggingface.co/api"
+HF_UA = {"User-Agent": "altverse-browser/1.0"}
+
+
+@app.get("/api/hf-search")
+def hf_search():
+    q = str(request.args.get("q", ""))[:120].strip()
+    if len(q) < 2:
+        return {"results": []}
+    try:
+        r = requests.get(f"{HF_API}/models",
+                         params={"search": q, "filter": "gguf",
+                                 "sort": "downloads", "direction": -1,
+                                 "limit": 20},
+                         headers=HF_UA, timeout=20)
+        out = [{"id": m.get("id", ""), "downloads": m.get("downloads", 0),
+                "likes": m.get("likes", 0)}
+               for m in r.json() if m.get("id")]
+    except Exception:  # noqa: BLE001 - offline or HF hiccup, empty list
+        out = []
+    return {"results": out}
+
+
+@app.get("/api/hf-files")
+def hf_files():
+    repo = str(request.args.get("repo", ""))[:200].strip()
+    if "/" not in repo:
+        return {"files": []}
+    try:
+        r = requests.get(f"{HF_API}/models/{repo}/tree/main",
+                         params={"recursive": "True"}, headers=HF_UA,
+                         timeout=20)
+        files = [{"file": e.get("path", ""),
+                  "gb": round((e.get("size") or 0) / 1e9, 2)}
+                 for e in r.json()
+                 if isinstance(e, dict)
+                 and e.get("type") != "directory"
+                 and str(e.get("path", "")).lower().endswith(".gguf")]
+        files.sort(key=lambda e: e["gb"])
+    except Exception:  # noqa: BLE001 - offline or bad repo, empty list
+        files = []
+    return {"files": files}
+
+
+def _safe_model_name(repo: str, filename: str) -> str:
+    base = repo.split("/")[-1].strip() or "custom"
+    quant = filename.rsplit(".", 1)[0].split("-")[-1]
+    name = re.sub(r"[^A-Za-z0-9_.-]+", "-", f"{base}-{quant}").strip(".-")[:80]
+    return f"user.{name or 'custom'}"
+
+
+@app.post("/api/hf-import")
+def hf_import():
+    data = request.get_json(force=True)
+    repo = str(data.get("repo", ""))[:200].strip()
+    filename = str(data.get("file", ""))[:200].strip()
+    if "/" not in repo or not filename.lower().endswith(".gguf") or "/" in filename:
+        return {"status": "bad request"}, 400
+    name = _safe_model_name(repo, filename)
+    spec = {
+        "checkpoints": {"main": f"{repo}:{filename}"},
+        "labels": ["chat"],
+        "model_name": name,
+        "recipe": "llamacpp",
+        "recipe_options": {
+            "ctx_size": 4096,
+            "llamacpp_args": LLAMACPP_ARGS,
+            "llamacpp_backend": BACKEND,
+        },
+        "registry_source": "huggingface",
+        "size": float(data.get("gb", 0) or 0),
+        "source": "huggingface",
+    }
+    try:
+        spec_path = os.path.join(tempfile.gettempdir(), "altverse-import.json")
+        with open(spec_path, "w", encoding="utf-8") as f:
+            json.dump(spec, f)
+        r = subprocess.run(["lemonade", "import", spec_path],
+                           capture_output=True, text=True, timeout=120)
+        if r.returncode != 0:
+            return {"status": "import failed",
+                    "detail": (r.stderr or r.stdout or "")[-500:]}, 500
+    except Exception as e:  # noqa: BLE001 - report back, never crash
+        return {"status": "error", "detail": str(e)[-300:]}, 500
+    return {"status": "imported", "model": name}
 
 
 @app.post("/api/query")
