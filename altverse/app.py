@@ -88,28 +88,45 @@ SYSTEM_PROMPT = (
 PAGE = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Alternate Universe Browser</title>
 <style>
-body{background:#0d1117;color:#e6edf3;font-family:system-ui,Arial,sans-serif;margin:0}
-nav{display:flex;gap:8px;padding:12px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0}
-input,button,select{padding:10px;border-radius:8px;border:1px solid #30363d;background:#0d1117;color:#e6edf3;font-size:15px}
-#url{flex:1}#year{width:90px}
-button{background:#238636;border-color:#238636;cursor:pointer;font-weight:600}
-button:disabled{background:#555;cursor:wait}
-#status{padding:8px 14px;color:#8b949e;font-size:13px;min-height:20px}
-iframe{width:100%;height:calc(100vh - 130px);border:0;background:#fff}
+body{background:#f0f0f4;color:#15141a;font-family:system-ui,"Segoe UI",Arial,sans-serif;margin:0}
+#tabstrip{display:flex;align-items:flex-end;gap:4px;padding:8px 10px 0;background:#e2e0e8}
+#tab{background:#f0f0f4;border-radius:10px 10px 0 0;padding:8px 12px;font-size:13px;display:flex;gap:10px;align-items:center;max-width:300px;white-space:nowrap;overflow:hidden}
+#tabx{cursor:pointer;color:#6d6d80;border-radius:4px;padding:0 4px}
+#tabx:hover{background:#d8d6e0}
+#newtab{cursor:pointer;color:#4a4a55;font-size:18px;padding:2px 8px;border-radius:6px}
+#newtab:hover{background:#d8d6e0}
+#toolbar{display:flex;gap:2px;padding:8px 10px;background:#f0f0f4;align-items:center}
+button{background:transparent;border:0;color:#15141a;font-size:16px;padding:7px 9px;border-radius:7px;cursor:pointer}
+button:hover:not(:disabled){background:#dcdce4}
+button:disabled{opacity:.35;cursor:default}
+#url{flex:1;border-radius:20px;background:#fff;border:1px solid #cfcfd8;padding:9px 16px;font-size:14px;color:#15141a;min-width:120px}
+#year{width:78px;border-radius:20px;background:#fff;border:1px solid #cfcfd8;padding:9px 10px;font-size:14px;color:#15141a}
+#aibar{display:flex;gap:10px;padding:7px 12px;background:#e8e7ee;border-top:1px solid #d5d3dd;align-items:center;font-size:13px;color:#3a3a44}
+#go{background:#0060df;border-color:#0060df;color:#fff;font-weight:600;font-size:14px;padding:8px 16px;border-radius:8px}
+#stop{background:#d70022;border-color:#d70022;color:#fff;font-weight:600;font-size:14px;padding:8px 14px;border-radius:8px}
+#model{background:#fff;border:1px solid #cfcfd8;border-radius:8px;padding:7px;font-size:13px;color:#15141a;max-width:230px}
+#aibar label{display:flex;gap:5px;align-items:center}
+#temp{width:90px;vertical-align:middle;accent-color:#0060df}
+#tempv{min-width:28px}
+#status{padding:6px 14px;color:#5b5b66;font-size:12px;min-height:18px;background:#f0f0f4}
+iframe{width:100%;height:calc(100vh - 196px);border:0;background:#fff;display:block}
 </style></head><body>
-<nav>
-<input id="url" value="youtube.com" placeholder="example.com">
-<input id="year" type="number" value="1999" min="1960" max="2100">
-<button id="back" onclick="goBack()" disabled title="Back">◀</button>
-<button id="fwd" onclick="goFwd()" disabled title="Forward">▶</button>
-<button id="go" onclick="query()">Query Reality</button>
+<div id="tabstrip"><div id="tab"><span id="tabtitle">New Timeline</span><span id="tabx" onclick="goHome()" title="New timeline">×</span></div><div id="newtab" onclick="goHome()" title="New timeline">+</div></div>
+<div id="toolbar">
+<button id="back" onclick="goBack()" disabled title="Back">←</button>
+<button id="fwd" onclick="goFwd()" disabled title="Forward">→</button>
 <button id="rel" onclick="query()" title="Reload timeline">⟳</button>
 <button id="home" onclick="goHome()" title="Home">⌂</button>
-<button id="stop" onclick="stopGen()" disabled style="background:#a40e26;border-color:#a40e26">Stop</button>
+<input id="url" value="youtube.com" placeholder="example.com">
+<input id="year" type="number" value="1999" min="1960" max="2100">
+</div>
+<div id="aibar">
+<button id="go" onclick="query()">Query Reality</button>
+<button id="stop" onclick="stopGen()" disabled>Stop</button>
 <select id="model" onchange="switchModel()" title="AI model"></select>
 <label title="Session memory: send last pages as context"><input type="checkbox" id="usemem" checked style="width:auto">Mem</label>
-<input type="range" id="temp" min="0" max="1.2" step="0.1" value="0.6" title="Temperature: lower = obedient, higher = unhinged" style="width:90px;vertical-align:middle" oninput="document.getElementById('tempv').textContent=this.value"><span id="tempv" title="Temperature">0.6</span>
-</nav>
+<input type="range" id="temp" min="0" max="1.2" step="0.1" value="0.6" title="Temperature: lower = obedient, higher = unhinged" oninput="document.getElementById('tempv').textContent=this.value"><span id="tempv" title="Temperature">0.6</span>
+</div>
 <div id="status">Enter a URL and a year, then Query Reality.</div>
 <iframe id="view" sandbox="allow-scripts" srcdoc="<body style='background:#fff;color:#888;font-family:sans-serif'><p style='padding:40px'>The void awaits your query&hellip;</p>"></iframe>
 <script>
@@ -123,7 +140,7 @@ function scrubDisclaimers(h){return h.replace(/[^<>]*(?:fan fiction|satire|no ac
 window.addEventListener('message',function(e){var d=e.data||{};var u=document.getElementById('url').value.trim()||'example.com';if(d.t==='altverse-search'){if(d.q)u=u+'/search?q='+encodeURIComponent(d.q);document.getElementById('url').value=u;query();}else if(d.t==='altverse-nav'){document.getElementById('url').value=d.url;query();}});
 let hist=[],hi=-1;
 function updNav(){document.getElementById('back').disabled=hi<=0;document.getElementById('fwd').disabled=hi>=hist.length-1;}
-function restore(){var s=hist[hi];document.getElementById('url').value=s.url;document.getElementById('year').value=s.year;setSrc(s.html);document.title=s.url+' ('+s.year+') — Alternate Universe Browser';updNav();}
+function restore(){var s=hist[hi];document.getElementById('url').value=s.url;document.getElementById('year').value=s.year;setSrc(s.html);document.title=s.url+' ('+s.year+') — Alternate Universe Browser';document.getElementById('tabtitle').textContent=s.url;updNav();}
 function goBack(){if(hi>0){hi--;restore();}}
 function goFwd(){if(hi<hist.length-1){hi++;restore();}}
 function goHome(){document.getElementById('url').value='google.com';document.getElementById('year').value=new Date().getFullYear();query();}
@@ -162,7 +179,7 @@ async function query(){
     }
     html=scrubDisclaimers(html);setSrc(html);
     hist=hist.slice(0,hi+1);hist.push({url:url,year:year,html:html});hi=hist.length-1;updNav();
-    document.title=url+' ('+year+') — Alternate Universe Browser';
+    document.title=url+' ('+year+') — Alternate Universe Browser';document.getElementById('tabtitle').textContent=url;
     st.textContent=`Rendered ${url} (${year}) — ${toks} tokens in ${((Date.now()-t0)/1000).toFixed(1)}s.`;
   }catch(e){
     if(e&&e.name==='AbortError'){
