@@ -122,9 +122,9 @@ iframe{width:100%;height:calc(100vh - 196px);border:0;background:#fff;display:bl
 </style></head><body>
 <div id="tabstrip"><div id="tab"><span id="tabtitle">New Timeline</span><span id="tabx" onclick="goHome()" title="New timeline">×</span></div><div id="newtab" onclick="goHome()" title="New timeline">+</div></div>
 <div id="toolbar">
-<button id="back" onclick="goBack()" disabled title="Back">←</button>
-<button id="fwd" onclick="goFwd()" disabled title="Forward">→</button>
-<button id="rel" onclick="query()" title="Reload timeline">⟳</button>
+<button id="back" onclick="goBack()" disabled title="Back">&larr;</button>
+<button id="fwd" onclick="goFwd()" disabled title="Forward">&rarr;</button>
+<button id="rel" onclick="query()" title="Reload timeline">&#8635;</button>
 <button id="home" onclick="goHome()" title="Home">⌂</button>
 <input id="url" value="youtube.com" placeholder="example.com">
 <input id="year" type="number" value="1999" min="1960" max="2100">
