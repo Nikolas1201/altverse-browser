@@ -97,6 +97,7 @@ body{background:#f0f0f4;color:#15141a;font-family:system-ui,"Segoe UI",Arial,san
 #titlebar .wbtn{width:44px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;color:#333}
 #titlebar .wbtn:hover{background:#e8eee9}
 #titlebar .wbtn.close:hover{background:#e81123;color:#fff}
+#titlebar .wbtn svg{width:12px;height:12px;display:block;fill:none}
 #tabstrip{display:flex;align-items:flex-end;gap:2px;padding:8px 10px 0;background:#e3ebe6}
 .tab{background:transparent;border-radius:10px 10px 0 0;padding:8px 12px;font-size:13px;display:flex;gap:10px;align-items:center;max-width:300px;white-space:nowrap;overflow:hidden;cursor:pointer;color:#4a4a55}
 .tab:not(.active){border-left:1px solid #c0bec8}
@@ -155,7 +156,7 @@ button:disabled{opacity:.35;cursor:default}
 #status{padding:6px 14px;color:#5b5b66;font-size:12px;min-height:18px;background:#f0f0f4}
 iframe{width:100%;flex:1;min-height:0;border:0;background:#fff;display:block}
 </style></head><body>
-<div id="titlebar" class="pywebview-drag-region"><img src="/icon.ico" alt=""><span class="tname">AltVerse Browser</span><div class="wbtn" onclick="winCtl('min')" title="Minimize">&#8211;</div><div class="wbtn" onclick="winCtl('max')" title="Maximize">&#9723;</div><div class="wbtn close" onclick="winCtl('close')" title="Close">&#10005;</div></div>
+<div id="titlebar" class="pywebview-drag-region"><img src="/icon.ico" alt=""><span class="tname">AltVerse Browser</span><div class="wbtn" onclick="winCtl('min')" title="Minimize">&#8211;</div><div class="wbtn" id="winmax" onclick="winCtl('max')" title="Maximize"><svg viewBox="0 0 12 12"><rect x="1.2" y="1.2" width="9.6" height="9.6" fill="none" stroke="currentColor" stroke-width="1"/></svg></div><div class="wbtn close" onclick="winCtl('close')" title="Close">&#10005;</div></div>
 <div id="tabstrip"><div id="tab"><span id="tabtitle">New Timeline</span><span id="tabx" onclick="goHome()" title="New timeline">×</span></div><div id="newtab" onclick="goHome()" title="New timeline">+</div></div>
 <div id="toolbar">
 <button id="back" class="navbtn" onclick="goBack()" disabled title="Back"><svg viewBox="0 0 24 24"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg></button>
@@ -313,7 +314,9 @@ function goHome(){var t=activeTab();if(!t)return;if(t.ctrl){try{t.ctrl.abort();}
 window.addEventListener('load',function(){loadModels();newTab();});
 document.addEventListener('click',function(e){var u=e.target.closest('button[data-unhide]');if(u){unhideModel(u.getAttribute('data-unhide'));return;}var d=e.target.closest('button[data-del]');if(d){deleteModel(d.getAttribute('data-del'));}});
 document.addEventListener('click',function(e){var p=e.target.closest('[data-pick]');if(p){switchModel(p.getAttribute('data-pick'));var mp=document.getElementById('modelpanel');if(mp)mp.style.display='none';return;}var h=e.target.closest('[data-hide]');if(h){hideModelName(h.getAttribute('data-hide'));}});
-function winCtl(a){try{if(window.pywebview&&window.pywebview.api&&window.pywebview.api[a==='max'?'toggle_max':a]){window.pywebview.api[a==='max'?'toggle_max':a]();return;}}catch(e){}fetch('/api/win/'+a,{method:'POST'}).catch(function(){});}
+function setMaxIcon(maxed){var b=document.getElementById('winmax');if(!b)return;b.title=maxed?'Restore':'Maximize';b.innerHTML=maxed?'<svg viewBox="0 0 12 12"><rect x="1.2" y="3.4" width="7.4" height="7.4" fill="none" stroke="currentColor" stroke-width="1"/><path d="M3.6 3.4V1.2h7.2v7.2H8.6" fill="none" stroke="currentColor" stroke-width="1"/></svg>':'<svg viewBox="0 0 12 12"><rect x="1.2" y="1.2" width="9.6" height="9.6" fill="none" stroke="currentColor" stroke-width="1"/></svg>';}
+var _maxed=false;
+async function winCtl(a){if(a==='max'){_maxed=!_maxed;setMaxIcon(_maxed);}try{if(window.pywebview&&window.pywebview.api){var f=window.pywebview.api[a==='max'?'toggle_max':a];if(f){f();return;}}}catch(e){}try{await fetch('/api/win/'+a,{method:'POST'});}catch(e){}}
 async function loadModels(){try{var r=await fetch('/api/models');var j=await r.json();window.mdefs=j.defaults||{};window.curModel=j.current;window.modelBusy=false;var mb=document.getElementById('modelbtn');mb.textContent=j.current||'pick a model';var mp=document.getElementById('modelpanel');var mh='';j.models.forEach(function(m){mh+='<div class="modrow"><span class="mname" data-pick="'+esc(m)+'">'+esc(m)+'</span><button class="hfbtn hfhide" data-hide="'+esc(m)+'">Hide</button></div>';});mp.innerHTML=mh||'<div style="padding:8px;color:#666">No models.</div>';var d=window.mdefs[j.current];if(d&&d.temp!==undefined){document.getElementById('temp').value=d.temp;document.getElementById('tempv').textContent=d.temp;}var hp=document.getElementById('hiddenpanel');var hb=document.getElementById('hiddenbtn');if(j.hidden&&j.hidden.length){hb.textContent='Hidden ('+j.hidden.length+') \u25be';var hh='';j.hidden.forEach(function(m){hh+='<div class="hidrow"><span class="hname">'+esc(m)+'</span><button class="hfbtn" data-unhide="'+esc(m)+'">Unhide</button><button class="hfbtn" style="background:#d70022" data-del="'+esc(m)+'">Delete</button></div>';});hp.innerHTML=hh;}else{hb.textContent='Hidden \u25be';hp.innerHTML='<div style="padding:8px;color:#666">No hidden models.</div>';}}catch(e){}}
 function toggleHidden(){var p=document.getElementById('hiddenpanel');p.style.display=(p.style.display==='block')?'none':'block';}
 function toggleModelList(){var p=document.getElementById('modelpanel');p.style.display=(p.style.display==='block')?'none':'block';}
@@ -512,12 +515,13 @@ WIN_HOOK = {"fn": None}
 @app.post("/api/win/<action>")
 def win_control(action):
     fn = WIN_HOOK.get("fn")
+    maxed = False
     if fn:
         try:
-            fn(action)
+            maxed = bool(fn(action))
         except Exception:  # noqa: BLE001 - never break the page
             pass
-    return {"ok": True}
+    return {"ok": True, "maxed": maxed}
 
 
 def _loaded_ids() -> list:

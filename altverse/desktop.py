@@ -285,6 +285,7 @@ class _WinApi:
                 self.maxed = False
         except Exception:  # noqa: BLE001 - cosmetic
             pass
+        return self.maxed
 
     def close(self):
         try:
