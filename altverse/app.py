@@ -19,6 +19,9 @@ import requests
 from flask import Flask, Response, request, send_file, stream_with_context
 
 LEMONADE_BASE = "http://127.0.0.1:13305/v1"
+CREATE_NO_WINDOW = 0x08000000 if os.name == "nt" else 0
+DEFAULT_MODELS_DIR = r"C:\models" if os.name == "nt" else os.path.join(
+    os.path.expanduser("~"), "models")
 MODEL = os.environ.get("ALTVERSE_MODEL", "Qwen3-4B-Instruct-2507-GGUF")
 
 
@@ -664,7 +667,7 @@ def delete_model():
     try:
         r = subprocess.run(["lemonade", "delete", mid],
                            capture_output=True, text=True, timeout=600,
-                           creationflags=0x08000000)
+                           creationflags=CREATE_NO_WINDOW)
         ok = r.returncode == 0
         detail = (r.stderr or r.stdout or "")[-300:]
     except Exception as e:  # noqa: BLE001 - report, never crash
@@ -675,7 +678,7 @@ def delete_model():
         if path and os.path.isabs(path) and os.path.exists(path):
             try:
                 subprocess.run(["lemonade", "unload", mid], capture_output=True,
-                               text=True, timeout=300, creationflags=0x08000000)
+                               text=True, timeout=300, creationflags=CREATE_NO_WINDOW)
             except Exception:  # noqa: BLE001 - may not be loaded
                 pass
             time.sleep(1)
@@ -769,7 +772,7 @@ def _safe_model_name(repo: str, filename: str) -> str:
 @app.get("/api/local-files")
 def local_files():
     cfg_dir = os.path.join(os.path.expanduser("~"), ".config", "lemonade")
-    folder = r"C:\models"
+    folder = DEFAULT_MODELS_DIR
     try:
         with open(os.path.join(cfg_dir, "config.json"), encoding="utf-8") as f:
             folder = json.load(f).get("extra_models_dir") or folder
@@ -794,7 +797,7 @@ def upload_gguf():
     if not name.lower().endswith(".gguf") or not name[:-5].strip("._-"):
         return {"status": "only .gguf files accepted"}, 400
     cfg_dir = os.path.join(os.path.expanduser("~"), ".config", "lemonade")
-    folder = r"C:\models"
+    folder = DEFAULT_MODELS_DIR
     try:
         with open(os.path.join(cfg_dir, "config.json"), encoding="utf-8") as f:
             folder = json.load(f).get("extra_models_dir") or folder

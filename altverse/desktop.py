@@ -20,7 +20,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 HOST, PORT = "127.0.0.1", 5057
 BASE = f"http://{HOST}:{PORT}"
 TITLE = "AltVerse Browser"
-CREATE_NO_WINDOW = 0x08000000
+CREATE_NO_WINDOW = 0x08000000 if os.name == "nt" else 0
 LOG = os.path.join(os.environ.get("TEMP", HERE), "altverse-desktop.log")
 
 
@@ -98,12 +98,38 @@ def _lemonade_cli():
 
 
 def _lemonade_server_exe():
-    for p in (r"%LOCALAPPDATA%\lemonade_server\bin\LemonadeServer.exe",
-              r"%ProgramFiles%\lemonade_server\bin\LemonadeServer.exe"):
+    if os.name == "nt":
+        cands = (r"%LOCALAPPDATA%\lemonade_server\bin\LemonadeServer.exe",
+                 r"%ProgramFiles%\lemonade_server\bin\LemonadeServer.exe")
+    else:
+        cands = ("/usr/bin/LemonadeServer", "/usr/local/bin/LemonadeServer",
+                 "/usr/bin/lemond", "/usr/local/bin/lemond",
+                 os.path.expanduser("~/.local/bin/lemond"),
+                 os.path.expanduser("~/.local/bin/LemonadeServer"))
+    for p in cands:
         path = os.path.expandvars(p)
         if os.path.exists(path):
             return path
     return None
+
+
+def _start_lemonade_linux():
+    """Best-effort start of the Lemonade service on Linux."""
+    import shutil
+    for cmd in (["systemctl", "--user", "restart", "lemonade"],
+                ["systemctl", "restart", "lemonade"],
+                ["systemctl", "--user", "restart", "lemond"],
+                ["systemctl", "restart", "lemond"]):
+        exe = shutil.which(cmd[0])
+        if not exe:
+            continue
+        try:
+            subprocess.run([exe] + cmd[1:], capture_output=True, timeout=30,
+                           creationflags=CREATE_NO_WINDOW)
+            return True
+        except Exception:  # noqa: BLE001 - try the next form
+            continue
+    return False
 
 
 def ensure_deps():
@@ -129,6 +155,11 @@ def ensure_lemonade():
         return True
     srv = _lemonade_server_exe()
     if not srv:
+        if os.name != "nt" and _start_lemonade_linux():
+            for _ in range(20):
+                time.sleep(3)
+                if _lemonade_ok():
+                    return True
         return False
     _hidden_popen([srv, "--silent"])
     for _ in range(20):
@@ -213,7 +244,28 @@ def _set_icon():
 
 
 def ensure_shortcut():
-    """Keep a desktop shortcut that launches this app via pythonw (no console)."""
+    """Keep a launcher that starts AltVerse without a console."""
+    if os.name != "nt":
+        try:
+            entry = ("[Desktop Entry]\nType=Application\nName=AltVerse Browser\n"
+                     "Comment=Local AI alternate-universe browser\n"
+                     "Exec=%s %s\nPath=%s\nIcon=%s\nTerminal=false\n"
+                     "Categories=Network;WebBrowser;\n" % (
+                         sys.executable, os.path.join(HERE, "desktop.py"), HERE,
+                         os.path.join(HERE, "icon.ico")))
+            for d in (os.path.expanduser("~/.local/share/applications"),
+                      os.path.expanduser("~/Desktop")):
+                try:
+                    os.makedirs(d, exist_ok=True)
+                    with open(os.path.join(d, "altverse-browser.desktop"), "w",
+                              encoding="utf-8") as f:
+                        f.write(entry)
+                    os.chmod(os.path.join(d, "altverse-browser.desktop"), 0o755)
+                except Exception:  # noqa: BLE001 - best effort
+                    pass
+        except Exception:  # noqa: BLE001 - cosmetic, never fatal
+            pass
+        return
     try:
         desktop = os.path.join(os.path.expanduser("~"), "Desktop")
         if not os.path.isdir(desktop):
@@ -276,7 +328,9 @@ class _WinApi:
 
     @staticmethod
     def _work_area():
-        """Screen minus the taskbar, so maximizing never hides it."""
+        """Screen minus the taskbar, so maximizing never hides it (Windows only)."""
+        if os.name != "nt":
+            return None
         import ctypes
         from ctypes import wintypes
         r = wintypes.RECT()
@@ -285,6 +339,13 @@ class _WinApi:
 
     def toggle_max(self):
         try:
+            if os.name != "nt":
+                if self.maxed:
+                    self.window.restore()
+                else:
+                    self.window.maximize()
+                self.maxed = not self.maxed
+                return self.maxed
             if not self.maxed:
                 try:
                     self._saved = (self.window.x, self.window.y,
@@ -318,7 +379,8 @@ def main():
     import webview  # imported late so deps can install first
 
     api = _WinApi()
-    frameless = os.environ.get("ALTVERSE_FRAMELESS", "1") != "0"
+    frameless = os.environ.get("ALTVERSE_FRAMELESS",
+                                   "1" if os.name == "nt" else "0") != "0"
     window = webview.create_window(
         TITLE, html=SPLASH, width=1280, height=820, min_size=(900, 600),
         background_color="#f2f5f3", frameless=frameless,

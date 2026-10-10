@@ -1,6 +1,17 @@
 AltVerse Browser - local AI alternate-universe browser
 ====================================================
 
+LINUX (also works): 
+  Put the app files (app.py, desktop.py, icon.ico, model.txt) in a folder with
+  these scripts, then:
+     ./setup-linux.sh     # installs Python packages, backend, and the model
+     ./run-linux.sh       # opens the app window
+  Lemonade Server must be installed first (it has Linux packages):
+  https://lemonade-server.ai/docs/guide/install/
+  The app needs a graphical desktop (GTK/WebKitGTK or Qt for pywebview).
+
+WINDOWS:
+
 INSTALL: run AltVerseSetup.exe, pick a model on the AI Model page,
 keep going, and it sets itself up - a progress bar shows each step
 (installing Python / Lemonade / the model) with no terminal windows
