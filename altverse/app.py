@@ -16,7 +16,7 @@ import threading
 import time
 
 import requests
-from flask import Flask, Response, request, stream_with_context
+from flask import Flask, Response, request, send_file, stream_with_context
 
 LEMONADE_BASE = "http://127.0.0.1:13305/v1"
 MODEL = os.environ.get("ALTVERSE_MODEL", "Qwen3-4B-Instruct-2507-GGUF")
@@ -89,7 +89,14 @@ SYSTEM_PROMPT = (
 PAGE = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Alternate Universe Browser</title>
 <style>
-body{background:#f0f0f4;color:#15141a;font-family:system-ui,"Segoe UI",Arial,sans-serif;margin:0}
+body{background:#f0f0f4;color:#15141a;font-family:system-ui,"Segoe UI",Arial,sans-serif;margin:0;display:flex;flex-direction:column;height:100vh;overflow:hidden}
+#titlebar{display:none;align-items:center;gap:8px;height:34px;background:#ffffff;border-bottom:1px solid #e2e6e3;padding:0 0 0 10px;font-size:13px;color:#15141a;flex:none;user-select:none}
+#titlebar.show{display:flex}
+#titlebar img{width:16px;height:16px}
+#titlebar .tname{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#titlebar .wbtn{width:44px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;color:#333}
+#titlebar .wbtn:hover{background:#e8eee9}
+#titlebar .wbtn.close:hover{background:#e81123;color:#fff}
 #tabstrip{display:flex;align-items:flex-end;gap:2px;padding:8px 10px 0;background:#e3ebe6}
 .tab{background:transparent;border-radius:10px 10px 0 0;padding:8px 12px;font-size:13px;display:flex;gap:10px;align-items:center;max-width:300px;white-space:nowrap;overflow:hidden;cursor:pointer;color:#4a4a55}
 .tab:not(.active){border-left:1px solid #c0bec8}
@@ -131,8 +138,9 @@ button:disabled{opacity:.35;cursor:default}
 #temp{width:90px;vertical-align:middle;accent-color:#1a7f37}
 #tempv{min-width:28px}
 #status{padding:6px 14px;color:#5b5b66;font-size:12px;min-height:18px;background:#f0f0f4}
-iframe{width:100%;height:calc(100vh - 196px);border:0;background:#fff;display:block}
+iframe{width:100%;flex:1;min-height:0;border:0;background:#fff;display:block}
 </style></head><body>
+<div id="titlebar" class="pywebview-drag-region"><img src="/icon.ico" alt=""><span class="tname">AltVerse Browser</span><div class="wbtn" onclick="winCtl('min')" title="Minimize">&#8211;</div><div class="wbtn" onclick="winCtl('max')" title="Maximize">&#9723;</div><div class="wbtn close" onclick="winCtl('close')" title="Close">&#10005;</div></div>
 <div id="tabstrip"><div id="tab"><span id="tabtitle">New Timeline</span><span id="tabx" onclick="goHome()" title="New timeline">×</span></div><div id="newtab" onclick="goHome()" title="New timeline">+</div></div>
 <div id="toolbar">
 <button id="back" onclick="goBack()" disabled title="Back">&larr;</button>
@@ -287,7 +295,8 @@ function restore(){var t=activeTab();if(!t||t.hi<0||t.hi>=t.hist.length)return;v
 function goBack(){var t=activeTab();if(t&&t.hi>0){t.hi--;restore();}}
 function goFwd(){var t=activeTab();if(t&&t.hi<t.hist.length-1){t.hi++;restore();}}
 function goHome(){var t=activeTab();if(!t)return;if(t.ctrl){try{t.ctrl.abort();}catch(e){}t.ctrl=null;t.started=false;t.queued=false;t.gen=(t.gen||0)+1;if(genLock===t.id)genLock=null;}genQueue=genQueue.filter(function(x){return x!==t.id;});homeState(t);activateTab(t.id);pumpQueue();}
-window.addEventListener('load',function(){loadModels();newTab();});
+window.addEventListener('load',function(){if(window.pywebview){var tb=document.getElementById('titlebar');if(tb)tb.classList.add('show');}loadModels();newTab();});
+function winCtl(a){try{if(a==='min')window.pywebview.api.minimize();else if(a==='max')window.pywebview.api.toggle_max();else window.pywebview.api.close();}catch(e){}}
 async function loadModels(){try{var r=await fetch('/api/models');var j=await r.json();window.mdefs=j.defaults||{};var s=document.getElementById('model');s.innerHTML='';j.models.forEach(function(m){var o=document.createElement('option');o.value=m;o.textContent=m.length>30?m.slice(0,30)+'…':m;if(m===j.current)o.selected=true;s.appendChild(o);});var d=window.mdefs[j.current];if(d&&d.temp!==undefined){document.getElementById('temp').value=d.temp;document.getElementById('tempv').textContent=d.temp;}}catch(e){}}
 async function switchModel(){var m=document.getElementById('model').value;var st=document.getElementById('status');document.getElementById('model').disabled=true;st.textContent='Loading '+m+' — minutes for big models…';try{await fetch('/api/switch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:m})});}catch(e){st.textContent='Error: '+e;document.getElementById('model').disabled=false;return;}var iv=setInterval(async function(){try{var r=await fetch('/api/switch-status');var j=await r.json();if(j.state==='loading'){st.textContent='Loading '+j.detail+'…';}else{clearInterval(iv);document.getElementById('model').disabled=false;st.textContent=(j.state==='ready'?'Model ready: ':'Switch failed: ')+j.detail;loadModels();}}catch(e){clearInterval(iv);document.getElementById('model').disabled=false;}},3000);}
 async function openHf(){document.getElementById('hfmodal').style.display='block';document.getElementById('hfq').focus();window._hfFlat=[];try{var r=await fetch('/api/models');var j=await r.json();window._dlIds=(j.models||[]).map(function(m){return m.toLowerCase();});}catch(e){window._dlIds=[];}loadLocal();}
@@ -463,6 +472,14 @@ def sanitize_event(event: str) -> str:
 @app.get("/")
 def index():
     return PAGE
+
+
+@app.get("/icon.ico")
+def site_icon():
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icon.ico")
+    if os.path.exists(path):
+        return send_file(path, mimetype="image/x-icon")
+    return "", 404
 
 
 def _loaded_ids() -> list:

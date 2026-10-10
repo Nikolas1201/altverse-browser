@@ -241,14 +241,49 @@ def _run_app(flask_app):
         _log("waitress error: " + repr(e))
 
 
+class _WinApi:
+    """Window controls exposed to the page (titlebar buttons)."""
+
+    def __init__(self):
+        self.window = None
+        self.maxed = False
+
+    def minimize(self):
+        try:
+            self.window.minimize()
+        except Exception:  # noqa: BLE001 - cosmetic
+            pass
+
+    def toggle_max(self):
+        try:
+            if self.maxed:
+                self.window.restore()
+            else:
+                self.window.maximize()
+            self.maxed = not self.maxed
+        except Exception:  # noqa: BLE001 - cosmetic
+            pass
+
+    def close(self):
+        try:
+            self.window.destroy()
+        except Exception:  # noqa: BLE001 - cosmetic
+            pass
+
+
 def main():
     _fix_stdio()
     ensure_deps()
     ensure_shortcut()
     import webview  # imported late so deps can install first
 
-    window = webview.create_window(TITLE, html=SPLASH, width=1280, height=820,
-                                   min_size=(900, 600), background_color="#f2f5f3")
+    api = _WinApi()
+    frameless = os.environ.get("ALTVERSE_FRAMELESS", "1") != "0"
+    window = webview.create_window(
+        TITLE, html=SPLASH, width=1280, height=820, min_size=(900, 600),
+        background_color="#f2f5f3", frameless=frameless,
+        easy_drag=not frameless, js_api=api)
+    api.window = window
 
     def boot():
         def msg(text):
