@@ -71,6 +71,23 @@ def _lemonade_ok(timeout=3):
     return _http_ok("http://127.0.0.1:13305/api/version", timeout)
 
 
+def _port_state():
+    """'free' = nothing there, 'serving' = our app answers, 'stuck' = bound but dead."""
+    import socket
+    s = socket.socket()
+    s.settimeout(1.5)
+    try:
+        s.connect((HOST, PORT))
+    except Exception:  # noqa: BLE001 - nothing listening
+        return "free"
+    finally:
+        try:
+            s.close()
+        except Exception:  # noqa: BLE001
+            pass
+    return "serving" if _port_ok() else "stuck"
+
+
 def _lemonade_cli():
     for p in (r"%LOCALAPPDATA%\lemonade_server\bin\lemonade.exe",
               r"%ProgramFiles%\lemonade_server\bin\lemonade.exe"):
@@ -318,6 +335,17 @@ def main():
 
         try:
             _log("boot start")
+            state = _port_state()
+            _log("port state: " + state)
+            if state == "serving":
+                _log("reusing the already-running instance")
+                window.load_url(BASE)
+                return
+            if state == "stuck":
+                _log("port bound but unresponsive")
+                msg("AltVerse is already open but not responding. "
+                    "Close it (or restart), then reopen.")
+                return
             msg("Checking the AI backend...")
             if not ensure_lemonade():
                 _log("lemonade unreachable")
