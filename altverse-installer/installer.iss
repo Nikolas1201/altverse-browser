@@ -1,6 +1,6 @@
 ; AltVerse Browser installer - includes a model picker wizard page.
 #define MyAppName "AltVerse Browser"
-#define MyAppVersion "1.3.2"
+#define MyAppVersion "1.5.0"
 
 [Setup]
 AppName={#MyAppName}
@@ -16,7 +16,9 @@ WizardStyle=modern
 
 [Files]
 Source: "..\altverse\app.py"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\altverse\desktop.py"; DestDir: "{app}"; Flags: ignoreversion
 Source: "Launcher.bat"; DestDir: "{app}"; DestName: "AltVerse.bat"; Flags: ignoreversion
+Source: "SetupDeps.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "DownloadModel.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "CudaWin10.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "EnsureLemonade.bat"; DestDir: "{app}"; Flags: ignoreversion
@@ -29,6 +31,8 @@ Name: "{autodesktop}\AltVerse Browser"; Filename: "{app}\AltVerse.bat"; WorkingD
 [Run]
 Filename: "winget"; Parameters: "install --id Python.Python.3.12 -e --accept-source-agreements --accept-package-agreements"; Description: "Install Python 3.12 (required, one-time admin prompt)"; Flags: postinstall; Check: NeedsPython
 Filename: "winget"; Parameters: "install --id AMD.LemonadeServer -e --accept-source-agreements --accept-package-agreements"; Description: "Install Lemonade Server (AI backend, one-time admin prompt)"; Flags: postinstall; Check: NeedsLemonade
+Filename: "winget"; Parameters: "install --id Microsoft.EdgeWebView2Runtime -e --accept-source-agreements --accept-package-agreements"; Description: "Install WebView2 runtime (powers the native window)"; Flags: postinstall; Check: NeedsWebView2
+Filename: "{app}\SetupDeps.bat"; Description: "Install Python packages (flask, requests, pywebview)"; Flags: postinstall
 Filename: "{app}\DownloadModel.bat"; Description: "Download the AI model now (required before first launch)"; Flags: postinstall
 Filename: "{app}\AltVerse.bat"; Description: "Launch AltVerse Browser now"; Flags: postinstall nowait skipifsilent
 
@@ -64,6 +68,18 @@ begin
   if CmdOk('where lemonade') then Result := False
   else if FileExists(ExpandConstant('{localappdata}\lemonade_server\bin\lemonade.exe')) then Result := False
   else if FileExists(ExpandConstant('{pf}\lemonade_server\bin\lemonade.exe')) then Result := False;
+end;
+
+function NeedsWebView2(): Boolean;
+var
+  V: String;
+begin
+  Result := True;
+  if RegQueryStringValue(HKLM, 'SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}', 'pv', V) then
+    if V <> '' then Result := False;
+  if Result then
+    if RegQueryStringValue(HKCU, 'SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}', 'pv', V) then
+      if V <> '' then Result := False;
 end;
 
 function DetectVRAM_MB(): Integer;
