@@ -137,6 +137,13 @@ button:disabled{opacity:.35;cursor:default}
 #aibar label{display:flex;gap:5px;align-items:center}
 #temp{width:90px;vertical-align:middle;accent-color:#1a7f37}
 #tempv{min-width:28px}
+#modelwrap{position:relative;display:inline-block}
+#modelbtn{background:#fff;border:1px solid #cfcfd8;border-radius:8px;padding:7px 10px;font-size:13px;color:#15141a;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#modelpanel{display:none;position:absolute;bottom:36px;left:0;background:#fff;border:1px solid #ccd6d0;border-radius:8px;min-width:300px;max-height:340px;overflow:auto;box-shadow:0 4px 16px rgba(0,0,0,.16);z-index:60;font-size:13px;padding:4px}
+.modrow{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px}
+.modrow:hover{background:#e8f0ea}
+.mname{flex:1;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hfhide{font-size:12px;padding:3px 10px;flex:none}
 #hiddenwrap{position:relative}
 #hiddenpanel{display:none;position:absolute;bottom:36px;left:0;background:#fff;border:1px solid #ccd6d0;border-radius:8px;min-width:280px;max-height:320px;overflow:auto;box-shadow:0 4px 16px rgba(0,0,0,.16);z-index:60;font-size:13px;padding:4px}
 .hidrow{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px}
@@ -159,9 +166,8 @@ iframe{width:100%;flex:1;min-height:0;border:0;background:#fff;display:block}
 <div id="aibar">
 <button id="go" onclick="query()">Query Reality</button>
 <button id="stop" onclick="stopGen()" disabled>Stop</button>
-<select id="model" onchange="switchModel()" title="AI model"></select>
+<div id="modelwrap"><button id="modelbtn" onclick="toggleModelList()" title="Choose model">...</button><div id="modelpanel"></div></div>
 <button id="hfbtn" onclick="openHf()" title="Add model from HuggingFace">+</button>
-<button id="hidebtn" onclick="hideCurrent()" title="Hide this model from the list">Hide</button>
 <div id="hiddenwrap"><button id="hiddenbtn" onclick="toggleHidden()" title="Hidden models">Hidden &#9662;</button><div id="hiddenpanel"></div></div>
 <label title="Session memory: send last pages as context"><input type="checkbox" id="usemem" checked style="width:auto">Mem</label>
 <input type="range" id="temp" min="0" max="1.2" step="0.1" value="0.6" title="Temperature: lower = obedient, higher = unhinged" oninput="document.getElementById('tempv').textContent=this.value"><span id="tempv" title="Temperature">0.6</span>
@@ -305,13 +311,15 @@ function goFwd(){var t=activeTab();if(t&&t.hi<t.hist.length-1){t.hi++;restore();
 function goHome(){var t=activeTab();if(!t)return;if(t.ctrl){try{t.ctrl.abort();}catch(e){}t.ctrl=null;t.started=false;t.queued=false;t.gen=(t.gen||0)+1;if(genLock===t.id)genLock=null;}genQueue=genQueue.filter(function(x){return x!==t.id;});homeState(t);activateTab(t.id);pumpQueue();}
 window.addEventListener('load',function(){loadModels();newTab();});
 document.addEventListener('click',function(e){var u=e.target.closest('button[data-unhide]');if(u){unhideModel(u.getAttribute('data-unhide'));return;}var d=e.target.closest('button[data-del]');if(d){deleteModel(d.getAttribute('data-del'));}});
+document.addEventListener('click',function(e){var p=e.target.closest('[data-pick]');if(p){switchModel(p.getAttribute('data-pick'));var mp=document.getElementById('modelpanel');if(mp)mp.style.display='none';return;}var h=e.target.closest('[data-hide]');if(h){hideModelName(h.getAttribute('data-hide'));}});
 function winCtl(a){try{if(window.pywebview&&window.pywebview.api&&window.pywebview.api[a==='max'?'toggle_max':a]){window.pywebview.api[a==='max'?'toggle_max':a]();return;}}catch(e){}fetch('/api/win/'+a,{method:'POST'}).catch(function(){});}
-async function loadModels(){try{var r=await fetch('/api/models');var j=await r.json();window.mdefs=j.defaults||{};var s=document.getElementById('model');s.innerHTML='';j.models.forEach(function(m){var o=document.createElement('option');o.value=m;o.textContent=m.length>30?m.slice(0,30)+'\u2026':m;if(m===j.current)o.selected=true;s.appendChild(o);});var d=window.mdefs[j.current];if(d&&d.temp!==undefined){document.getElementById('temp').value=d.temp;document.getElementById('tempv').textContent=d.temp;}var hp=document.getElementById('hiddenpanel');var hb=document.getElementById('hiddenbtn');if(j.hidden&&j.hidden.length){hb.textContent='Hidden ('+j.hidden.length+') \u25be';var hh='';j.hidden.forEach(function(m){hh+='<div class="hidrow"><span class="hname">'+esc(m)+'</span><button class="hfbtn" data-unhide="'+esc(m)+'">Unhide</button><button class="hfbtn" style="background:#d70022" data-del="'+esc(m)+'">Delete</button></div>';});hp.innerHTML=hh;}else{hb.textContent='Hidden \u25be';hp.innerHTML='<div style="padding:8px;color:#666">No hidden models.</div>';}}catch(e){}}
+async function loadModels(){try{var r=await fetch('/api/models');var j=await r.json();window.mdefs=j.defaults||{};window.curModel=j.current;window.modelBusy=false;var mb=document.getElementById('modelbtn');mb.textContent=j.current||'pick a model';var mp=document.getElementById('modelpanel');var mh='';j.models.forEach(function(m){mh+='<div class="modrow"><span class="mname" data-pick="'+esc(m)+'">'+esc(m)+'</span><button class="hfbtn hfhide" data-hide="'+esc(m)+'">Hide</button></div>';});mp.innerHTML=mh||'<div style="padding:8px;color:#666">No models.</div>';var d=window.mdefs[j.current];if(d&&d.temp!==undefined){document.getElementById('temp').value=d.temp;document.getElementById('tempv').textContent=d.temp;}var hp=document.getElementById('hiddenpanel');var hb=document.getElementById('hiddenbtn');if(j.hidden&&j.hidden.length){hb.textContent='Hidden ('+j.hidden.length+') \u25be';var hh='';j.hidden.forEach(function(m){hh+='<div class="hidrow"><span class="hname">'+esc(m)+'</span><button class="hfbtn" data-unhide="'+esc(m)+'">Unhide</button><button class="hfbtn" style="background:#d70022" data-del="'+esc(m)+'">Delete</button></div>';});hp.innerHTML=hh;}else{hb.textContent='Hidden \u25be';hp.innerHTML='<div style="padding:8px;color:#666">No hidden models.</div>';}}catch(e){}}
 function toggleHidden(){var p=document.getElementById('hiddenpanel');p.style.display=(p.style.display==='block')?'none':'block';}
-async function hideCurrent(){var m=document.getElementById('model').value;if(!m)return;try{await fetch('/api/hide',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:m})});}catch(e){}loadModels();}
+function toggleModelList(){var p=document.getElementById('modelpanel');p.style.display=(p.style.display==='block')?'none':'block';}
+async function hideModelName(m){try{await fetch('/api/hide',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:m})});}catch(e){}loadModels();}
 async function unhideModel(m){try{await fetch('/api/unhide',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:m})});}catch(e){}loadModels();}
 async function deleteModel(m){if(!confirm('Delete "'+m+'" for good? This removes the model files.'))return;var st=document.getElementById('status');st.textContent='Deleting '+m+' ...';try{var r=await fetch('/api/delete-model',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:m})});var j=await r.json();st.textContent=(j.status==='deleted')?('Deleted '+m+'.'):('Delete failed: '+(j.detail||j.status));}catch(e){st.textContent='Delete error: '+e;}loadModels();}
-async function switchModel(){var m=document.getElementById('model').value;var st=document.getElementById('status');document.getElementById('model').disabled=true;st.textContent='Loading '+m+' — minutes for big models…';try{await fetch('/api/switch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:m})});}catch(e){st.textContent='Error: '+e;document.getElementById('model').disabled=false;return;}var iv=setInterval(async function(){try{var r=await fetch('/api/switch-status');var j=await r.json();if(j.state==='loading'){st.textContent='Loading '+j.detail+'…';}else{clearInterval(iv);document.getElementById('model').disabled=false;st.textContent=(j.state==='ready'?'Model ready: ':'Switch failed: ')+j.detail;loadModels();}}catch(e){clearInterval(iv);document.getElementById('model').disabled=false;}},3000);}
+async function switchModel(m){if(!m)m=window.curModel;var st=document.getElementById('status');window.modelBusy=true;var mb=document.getElementById('modelbtn');mb.disabled=true;st.textContent='Loading '+m+' - minutes for big models...';try{await fetch('/api/switch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:m})});}catch(e){st.textContent='Error: '+e;window.modelBusy=false;mb.disabled=false;return;}var iv=setInterval(async function(){try{var r=await fetch('/api/switch-status');var j=await r.json();if(j.state==='loading'){st.textContent='Loading '+j.detail+'...';}else{clearInterval(iv);window.modelBusy=false;mb.disabled=false;st.textContent=(j.state==='ready'?'Model ready: ':'Switch failed: ')+j.detail;loadModels();}}catch(e){clearInterval(iv);window.modelBusy=false;mb.disabled=false;}},3000);}
 async function openHf(){document.getElementById('hfmodal').style.display='block';document.getElementById('hfq').focus();window._hfFlat=[];try{var r=await fetch('/api/models');var j=await r.json();window._dlIds=(j.models||[]).map(function(m){return m.toLowerCase();});}catch(e){window._dlIds=[];}loadLocal();}
 async function loadLocal(){
   var ld=document.getElementById('hflocal');
@@ -354,7 +362,7 @@ async function hfImport(i,file,gb){
 async function query(){
   if(document.getElementById('go').disabled)return;
   var t=activeTab();if(!t)return;
-  if(document.getElementById('model').disabled){document.getElementById('status').textContent='Model still loading - wait...';return;}
+  if(window.modelBusy){document.getElementById('status').textContent='Model still loading - wait...';return;}
   t.url=document.getElementById('url').value.trim()||'example.com';
   t.year=document.getElementById('year').value||'1999';
   renderTabs();
@@ -560,6 +568,27 @@ HIDDEN_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                            "hidden_models.json")
 
 
+def _available_ids() -> list:
+    try:
+        r = requests.get(f"{LEMONADE_BASE}/models", timeout=15)
+        data = r.json().get("data", [])
+        return [m["id"] for m in data
+                if m.get("id") and ("downloaded" not in m or m.get("downloaded"))]
+    except Exception:  # noqa: BLE001 - Lemonade unreachable
+        return []
+
+
+def _model_checkpoint(mid: str) -> str:
+    try:
+        r = requests.get(f"{LEMONADE_BASE}/models", timeout=15)
+        for m in r.json().get("data", []):
+            if m.get("id") == mid:
+                return m.get("checkpoint") or ""
+    except Exception:  # noqa: BLE001 - Lemonade unreachable
+        pass
+    return ""
+
+
 def _load_hidden() -> set:
     try:
         with open(HIDDEN_FILE, encoding="utf-8") as f:
@@ -588,7 +617,7 @@ def list_models():
     if _current["id"] not in ids:
         ids = [_current["id"]] + ids
     hidden = _load_hidden()
-    visible = [m for m in ids if m not in hidden or m == _current["id"]]
+    visible = [m for m in ids if m not in hidden]
     hidden_present = sorted([m for m in ids if m in hidden])
     defaults = {mid: {"temp": MODEL_PRESETS.get(mid, {}).get("temp", DEFAULT_TEMP),
                       "max": min(int(MODEL_PRESETS.get(mid, {}).get("max", DEFAULT_MAX)), MAX_TOKENS)}
@@ -605,7 +634,10 @@ def hide_model():
         hidden = _load_hidden()
         hidden.add(mid)
         _save_hidden(hidden)
-    return {"ok": True}
+        if _current["id"] == mid:
+            rest = [m for m in _available_ids() if m not in hidden]
+            _current["id"] = rest[0] if rest else ""
+    return {"ok": True, "current": _current["id"]}
 
 
 @app.post("/api/unhide")
@@ -632,6 +664,22 @@ def delete_model():
         detail = (r.stderr or r.stdout or "")[-300:]
     except Exception as e:  # noqa: BLE001 - report, never crash
         ok, detail = False, str(e)[-300:]
+    if not ok:
+        # extra-models-dir models cannot be deleted via API: remove the file
+        path = _model_checkpoint(mid)
+        if path and os.path.isabs(path) and os.path.exists(path):
+            try:
+                subprocess.run(["lemonade", "unload", mid], capture_output=True,
+                               text=True, timeout=300, creationflags=0x08000000)
+            except Exception:  # noqa: BLE001 - may not be loaded
+                pass
+            time.sleep(1)
+            try:
+                os.remove(path)
+                ok = True
+                detail = "Removed " + os.path.basename(path)
+            except Exception as e:  # noqa: BLE001 - locked/permission
+                detail = "Could not remove file: " + str(e)[-200:]
     if ok:
         hidden = _load_hidden()
         hidden.discard(mid)
