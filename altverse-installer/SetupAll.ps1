@@ -70,9 +70,22 @@ try {
 
     # 6. GPU backend
     $backend = 'vulkan'
-    nvidia-smi -L *> $null
-    if ($LASTEXITCODE -eq 0) { $backend = 'cuda' }
+    $nsmi = $null
+    foreach ($p in @("$env:SystemRoot\System32\nvidia-smi.exe",
+                     "$env:ProgramFiles\NVIDIA Corporation\NVSMI\nvidia-smi.exe")) {
+        if (Test-Path $p) { $nsmi = $p; break }
+    }
+    if (-not $nsmi -and (Have 'nvidia-smi')) { $nsmi = 'nvidia-smi' }
+    if ($nsmi) {
+        $old = $ErrorActionPreference
+        $ErrorActionPreference = 'SilentlyContinue'
+        $null = & $nsmi -L 2>$null
+        if ($LASTEXITCODE -eq 0) { $backend = 'cuda' }
+        $ErrorActionPreference = $old
+    }
     Set-Status 70 ("Setting up $backend backend...")
+    $env:BACKEND = $backend
+    $env:LEMONADE = $lem
     & "$PSScriptRoot\CudaWin10.bat" | Out-Null
     & $lem backends install "llamacpp:$backend" | Out-Null
 

@@ -1,6 +1,6 @@
 ; AltVerse Browser installer - includes a model picker wizard page.
 #define MyAppName "AltVerse Browser"
-#define MyAppVersion "1.6.0"
+#define MyAppVersion "1.6.1"
 
 [Setup]
 AppName={#MyAppName}
@@ -30,7 +30,7 @@ Source: "README.txt"; DestDir: "{app}"; Flags: ignoreversion
 Name: "{autodesktop}\AltVerse Browser"; Filename: "{app}\AltVerse.bat"; WorkingDir: "{app}"; IconFilename: "{app}\icon.ico"
 
 [Run]
-Filename: "{userdesktop}\AltVerse Browser.lnk"; Description: "Launch AltVerse Browser"; Flags: postinstall nowait skipifsilent
+Filename: "{userdesktop}\AltVerse Browser.lnk"; Description: "Launch AltVerse Browser"; Flags: postinstall nowait skipifsilent shellexec
 
 [Code]
 var
