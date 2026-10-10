@@ -125,6 +125,8 @@ body{background:#f0f0f4;color:#15141a;font-family:system-ui,"Segoe UI",Arial,san
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
 .tablabel{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 #toolbar{display:flex;gap:2px;padding:8px 10px;background:#f2f5f3;align-items:center}
+.navbtn{display:flex;align-items:center;justify-content:center;width:34px;height:34px;padding:0}
+#toolbar svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;display:block}
 button{background:transparent;border:0;color:#15141a;font-size:16px;padding:7px 9px;border-radius:7px;cursor:pointer}
 button:hover:not(:disabled){background:#dbe6df}
 button:disabled{opacity:.35;cursor:default}
@@ -156,10 +158,9 @@ iframe{width:100%;flex:1;min-height:0;border:0;background:#fff;display:block}
 <div id="titlebar" class="pywebview-drag-region"><img src="/icon.ico" alt=""><span class="tname">AltVerse Browser</span><div class="wbtn" onclick="winCtl('min')" title="Minimize">&#8211;</div><div class="wbtn" onclick="winCtl('max')" title="Maximize">&#9723;</div><div class="wbtn close" onclick="winCtl('close')" title="Close">&#10005;</div></div>
 <div id="tabstrip"><div id="tab"><span id="tabtitle">New Timeline</span><span id="tabx" onclick="goHome()" title="New timeline">×</span></div><div id="newtab" onclick="goHome()" title="New timeline">+</div></div>
 <div id="toolbar">
-<button id="back" onclick="goBack()" disabled title="Back">&larr;</button>
-<button id="fwd" onclick="goFwd()" disabled title="Forward">&rarr;</button>
-<button id="rel" onclick="query()" title="Reload timeline">&#8635;</button>
-<button id="home" onclick="goHome()" title="Home">⌂</button>
+<button id="back" class="navbtn" onclick="goBack()" disabled title="Back"><svg viewBox="0 0 24 24"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg></button>
+<button id="fwd" class="navbtn" onclick="goFwd()" disabled title="Forward"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg></button>
+<button id="rel" class="navbtn" onclick="query()" title="Reload timeline"><svg viewBox="0 0 24 24"><path d="M21 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L21 10"/></svg></button>
 <input id="url" value="youtube.com" placeholder="example.com">
 <input id="year" type="number" value="1999" min="1960" max="2100">
 </div>
