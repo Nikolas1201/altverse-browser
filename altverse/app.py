@@ -290,7 +290,31 @@ function goHome(){var t=activeTab();if(!t)return;if(t.ctrl){try{t.ctrl.abort();}
 window.addEventListener('load',function(){loadModels();newTab();});
 async function loadModels(){try{var r=await fetch('/api/models');var j=await r.json();window.mdefs=j.defaults||{};var s=document.getElementById('model');s.innerHTML='';j.models.forEach(function(m){var o=document.createElement('option');o.value=m;o.textContent=m.length>30?m.slice(0,30)+'…':m;if(m===j.current)o.selected=true;s.appendChild(o);});var d=window.mdefs[j.current];if(d&&d.temp!==undefined){document.getElementById('temp').value=d.temp;document.getElementById('tempv').textContent=d.temp;}}catch(e){}}
 async function switchModel(){var m=document.getElementById('model').value;var st=document.getElementById('status');document.getElementById('model').disabled=true;st.textContent='Loading '+m+' — minutes for big models…';try{await fetch('/api/switch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:m})});}catch(e){st.textContent='Error: '+e;document.getElementById('model').disabled=false;return;}var iv=setInterval(async function(){try{var r=await fetch('/api/switch-status');var j=await r.json();if(j.state==='loading'){st.textContent='Loading '+j.detail+'…';}else{clearInterval(iv);document.getElementById('model').disabled=false;st.textContent=(j.state==='ready'?'Model ready: ':'Switch failed: ')+j.detail;loadModels();}}catch(e){clearInterval(iv);document.getElementById('model').disabled=false;}},3000);}
-async function openHf(){document.getElementById('hfmodal').style.display='block';document.getElementById('hfq').focus();window._hfFlat=[];try{var r=await fetch('/api/models');var j=await r.json();window._dlIds=(j.models||[]).map(function(m){return m.toLowerCase();});}catch(e){window._dlIds=[];}try{var lr=await fetch('/api/local-files');var lj=await lr.json();var ld=document.getElementById('hflocal');if(lj.files&&lj.files.length){var lh='On this PC ('+esc(lj.dir)+'): ';lj.files.forEach(function(f,i){lh+=(i?', ':'')+esc(f.file)+' '+f.gb+'GB';});lh+='<br>Drop any .gguf here and it appears in the menu, no download.';ld.innerHTML=lh;}else{ld.textContent='Drop any .gguf into '+lj.dir+' and it appears in the menu, no download.';}}catch(e){}}
+async function openHf(){document.getElementById('hfmodal').style.display='block';document.getElementById('hfq').focus();window._hfFlat=[];try{var r=await fetch('/api/models');var j=await r.json();window._dlIds=(j.models||[]).map(function(m){return m.toLowerCase();});}catch(e){window._dlIds=[];}loadLocal();}
+async function loadLocal(){
+  var ld=document.getElementById('hflocal');
+  try{
+    var lr=await fetch('/api/local-files');var lj=await lr.json();
+    var h='On this PC ('+esc(lj.dir)+'): ';
+    if(lj.files&&lj.files.length){lj.files.forEach(function(f,i){h+=(i?', ':'')+esc(f.file)+' '+f.gb+'GB';});}
+    else{h+='(empty)';}
+    h+='<br><button class="hfbtn" onclick="document.getElementById(&quot;hffile&quot;).click()">Import file...</button><input type="file" id="hffile" accept=".gguf" style="display:none" onchange="uploadGguf()"><div id="upstatus" style="color:#666"></div>';
+    ld.innerHTML=h;
+  }catch(e){ld.textContent='Local folder unavailable.';}
+}
+async function uploadGguf(){
+  var inp=document.getElementById('hffile');
+  if(!inp.files||!inp.files.length)return;
+  var st=document.getElementById('upstatus');
+  var fd=new FormData();fd.append('file',inp.files[0]);
+  st.innerHTML='Uploading...<div class="hfprog"><div id="upbar"></div></div>';
+  var xhr=new XMLHttpRequest();
+  xhr.open('POST','/api/upload-gguf',true);
+  xhr.upload.onprogress=function(e){if(e.lengthComputable){var p=Math.round(e.loaded/e.total*100);var b=document.getElementById('upbar');if(b){b.style.width=p+'%';b.style.animation='none';}st.firstChild.textContent='Uploading... '+p+'% ';}};
+  xhr.onload=function(){try{var j=JSON.parse(xhr.responseText);if(j.status==='saved'){st.textContent='Saved '+j.file+' ('+j.gb+' GB). Pick it from the menu.';loadLocal();loadModels();}else{st.textContent='Failed: '+(j.detail||j.status);}}catch(e){st.textContent='Upload failed.';}};
+  xhr.onerror=function(){st.textContent='Upload failed.';};
+  xhr.send(fd);
+}
 function closeHf(){document.getElementById('hfmodal').style.display='none';}document.getElementById('hfres').addEventListener('click',function(e){var g=e.target.closest('button[data-hfgo]');if(g){hfFiles(+g.getAttribute('data-hfgo'));return;}var b=e.target.closest('button[data-hfimp]');if(b){var o=window._hfFlat[+b.getAttribute('data-hfimp')];if(o)hfImport(o.r,o.f,o.g,o.i);}});
 async function hfSearch(){var q=document.getElementById('hfq').value.trim();var box=document.getElementById('hfres');if(q.length<2){box.textContent='Type at least 2 characters.';return;}box.textContent='Searching...';try{var r=await fetch('/api/hf-search?q='+encodeURIComponent(q));var j=await r.json();if(!j.results||!j.results.length){box.textContent='No GGUF models found.';return;}window._hfRepos=j.results.map(function(m){return m.id;});var h='';j.results.forEach(function(m,i){var base=(m.id.split('/')[1]||m.id).toLowerCase();var stem=base.replace(/[-_]gguf$/,'');var dl=(window._dlIds||[]).some(function(x){return x===base||x.indexOf(stem)===0||x.indexOf(base)>=0;});h+='<div class="hfrow"><div><b>'+esc(m.id)+'</b>'+(dl?'<span class="hfdl">\u2713 on this PC</span>':'')+'<br><span style="color:#666">'+m.downloads+' downloads</span> <button class="hfbtn" id="hftoggle'+i+'" onclick="hfFiles('+i+')">Show files \u25be</button></div><div id="hffiles'+i+'" style="display:none"></div></div>';});box.innerHTML=h;}catch(e){box.textContent='Error: '+e;}}
 async function hfFiles(i){var div=document.getElementById('hffiles'+i);var tog=document.getElementById('hftoggle'+i);if(div.dataset.loaded==='1'){var show=div.style.display==='none';div.style.display=show?'block':'none';tog.textContent=show?('Hide \u25b4 ('+div.dataset.n+')'):('Show files \u25be');return;}var repo=window._hfRepos[i];div.style.display='block';div.textContent='Loading files...';try{var r=await fetch('/api/hf-files?repo='+encodeURIComponent(repo));var j=await r.json();if(!j.files||!j.files.length){div.textContent='No GGUF files in this repo.';return;}div.dataset.loaded='1';div.dataset.n=j.files.length;tog.textContent='Hide \u25b4 ('+j.files.length+')';var h='';j.files.forEach(function(f){h+='<div class="hffile">'+esc(f.file)+' <span style="color:#666">'+f.gb+' GB</span> <button class="hfbtn hfimp" data-hfimp="'+(window._hfFlat.push({r:repo,f:f.file,g:f.gb,i:i})-1)+'">Import</button></div>';});div.innerHTML=h+'<div id="hfstatus'+i+'" style="color:#666"></div>';}catch(e){div.textContent='Error: '+e;}}
@@ -320,6 +344,7 @@ async function query(){
 </script></body></html>"""
 
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 32 * 1024 ** 3  # local GGUF uploads
 
 
 def build_messages(url: str, year: int, context: list | None = None,
@@ -574,9 +599,6 @@ def _safe_model_name(repo: str, filename: str) -> str:
     return f"user.{name or 'custom'}"
 
 
-    return {"dir": folder, "files": files}
-
-
 @app.get("/api/local-files")
 def local_files():
     cfg_dir = os.path.join(os.path.expanduser("~"), ".config", "lemonade")
@@ -593,6 +615,36 @@ def local_files():
     except Exception:  # noqa: BLE001 - folder missing/unreadable
         files = []
     return {"dir": folder, "files": files}
+
+
+@app.post("/api/upload-gguf")
+def upload_gguf():
+    from werkzeug.utils import secure_filename
+    if "file" not in request.files:
+        return {"status": "no file part"}, 400
+    up = request.files["file"]
+    name = secure_filename(up.filename or "")
+    if not name.lower().endswith(".gguf") or not name[:-5].strip("._-"):
+        return {"status": "only .gguf files accepted"}, 400
+    cfg_dir = os.path.join(os.path.expanduser("~"), ".config", "lemonade")
+    folder = r"C:\models"
+    try:
+        with open(os.path.join(cfg_dir, "config.json"), encoding="utf-8") as f:
+            folder = json.load(f).get("extra_models_dir") or folder
+    except Exception:  # noqa: BLE001 - fall back to default folder
+        pass
+    dest = os.path.join(folder, name)
+    stem, ext = os.path.splitext(name)
+    n = 1
+    while os.path.exists(dest):
+        n += 1
+        dest = os.path.join(folder, f"{stem}-{n}{ext}")
+    try:
+        up.save(dest)
+    except Exception as e:  # noqa: BLE001 - disk full etc, report it
+        return {"status": "save failed", "detail": str(e)[-200:]}, 500
+    size = round(os.path.getsize(dest) / 1e9, 2)
+    return {"status": "saved", "file": os.path.basename(dest), "gb": size}
 
 
 @app.post("/api/hf-import")

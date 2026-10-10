@@ -22,6 +22,12 @@ if errorlevel 1 (
 )
 %PY% -m pip install --quiet --disable-pip-version-check flask requests
 
+REM resolve the real interpreter so the detached server never hits the py launcher's stdin quirk
+%PY% -c "import sys;print(sys.executable)" > "%TEMP%\altverse-pyexe.txt" 2>nul
+set PYEXE=
+if exist "%TEMP%\altverse-pyexe.txt" set /p PYEXE=<"%TEMP%\altverse-pyexe.txt"
+del "%TEMP%\altverse-pyexe.txt" 2>nul
+
 REM 2. Lemonade Server: use it, or install it with winget, or point at docs
 set LEMONADE=lemonade
 where lemonade >nul 2>&1
@@ -50,7 +56,15 @@ if errorlevel 1 (
   )
 )
 
-REM 3. GPU backend: NVIDIA -> cuda, anything else -> vulkan. Then model.
+REM 3. Make sure the Lemonade server is up (CLI commands hang without it)
+call "%~dp0EnsureLemonade.bat"
+if errorlevel 1 (
+  echo [AltVerse] Lemonade Server is not reachable. Reboot or start it, then retry.
+  pause
+  exit /b 1
+)
+
+REM 4. GPU backend: NVIDIA -> cuda, anything else -> vulkan. Then model.
 nvidia-smi --query-gpu=name --format=csv,noheader,nounits > "%TEMP%\altverse-gpu.txt" 2>nul
 set GPUINFO=none
 if exist "%TEMP%\altverse-gpu.txt" set /p GPUINFO=<"%TEMP%\altverse-gpu.txt"
@@ -73,7 +87,7 @@ if errorlevel 1 (
 %LEMONADE% load %ALTVERSE_MODEL% --llamacpp %BACKEND% --ctx-size %ALTVERSE_CTX% --llamacpp-args "--flash-attn on --parallel 1 --cache-type-k q8_0 --cache-type-v q8_0" --save-options --pinned
 
 REM 4. start the app minimized
-start "AltVerse Server" /min %PY% app.py
+if defined PYEXE (start "AltVerse Server" /min "%PYEXE%" app.py) else (start "AltVerse Server" /min %PY% app.py)
 
 REM 5. wait until it answers
 :wait

@@ -33,6 +33,12 @@ if errorlevel 1 (
     )
   )
 )
+call "%~dp0EnsureLemonade.bat"
+if errorlevel 1 (
+  echo [AltVerse] Lemonade Server is not reachable.
+  pause
+  exit /b 1
+)
 call "%~dp0CudaWin10.bat"
 if errorlevel 1 (
   echo [AltVerse] automatic CUDA setup failed, see above.
