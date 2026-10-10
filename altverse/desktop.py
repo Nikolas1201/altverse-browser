@@ -188,7 +188,9 @@ def _set_icon():
             if h:
                 u32.SendMessageW(hwnd, WM_SETICON, ICON_SMALL, h)
                 u32.SendMessageW(hwnd, WM_SETICON, ICON_BIG, h)
-        _log("icon: applied to hwnd %s" % hwnd)
+        style = u32.GetWindowLongW(hwnd, -16) & 0xFFFFFFFF
+        _log("icon: applied hwnd=%s style=0x%X caption=%s frameless=%s"
+             % (hwnd, style, bool(style & 0x00C00000), not (style & 0x00C00000)))
     except Exception as e:  # noqa: BLE001 - icon is cosmetic, never fatal
         _log("icon error: " + repr(e))
 
@@ -305,9 +307,12 @@ def main():
             _log("model ok")
             msg("Opening your browser...")
 
-            from app import app
+            import app as app_module
             _log("imported app")
-            threading.Thread(target=_run_app, args=(app,),
+            app_module.WIN_HOOK["fn"] = (
+                lambda a: api.minimize() if a == "min"
+                else api.toggle_max() if a == "max" else api.close())
+            threading.Thread(target=_run_app, args=(app_module.app,),
                              daemon=True).start()
             for _ in range(60):
                 time.sleep(0.5)

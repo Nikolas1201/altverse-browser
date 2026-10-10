@@ -90,7 +90,7 @@ PAGE = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Alternate Universe Browser</title>
 <style>
 body{background:#f0f0f4;color:#15141a;font-family:system-ui,"Segoe UI",Arial,sans-serif;margin:0;display:flex;flex-direction:column;height:100vh;overflow:hidden}
-#titlebar{display:none;align-items:center;gap:8px;height:34px;background:#ffffff;border-bottom:1px solid #e2e6e3;padding:0 0 0 10px;font-size:13px;color:#15141a;flex:none;user-select:none}
+#titlebar{display:flex;align-items:center;gap:8px;height:34px;background:#ffffff;border-bottom:1px solid #e2e6e3;padding:0 0 0 10px;font-size:13px;color:#15141a;flex:none;user-select:none}
 #titlebar.show{display:flex}
 #titlebar img{width:16px;height:16px}
 #titlebar .tname{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -295,8 +295,8 @@ function restore(){var t=activeTab();if(!t||t.hi<0||t.hi>=t.hist.length)return;v
 function goBack(){var t=activeTab();if(t&&t.hi>0){t.hi--;restore();}}
 function goFwd(){var t=activeTab();if(t&&t.hi<t.hist.length-1){t.hi++;restore();}}
 function goHome(){var t=activeTab();if(!t)return;if(t.ctrl){try{t.ctrl.abort();}catch(e){}t.ctrl=null;t.started=false;t.queued=false;t.gen=(t.gen||0)+1;if(genLock===t.id)genLock=null;}genQueue=genQueue.filter(function(x){return x!==t.id;});homeState(t);activateTab(t.id);pumpQueue();}
-window.addEventListener('load',function(){if(window.pywebview){var tb=document.getElementById('titlebar');if(tb)tb.classList.add('show');}loadModels();newTab();});
-function winCtl(a){try{if(a==='min')window.pywebview.api.minimize();else if(a==='max')window.pywebview.api.toggle_max();else window.pywebview.api.close();}catch(e){}}
+window.addEventListener('load',function(){loadModels();newTab();});
+function winCtl(a){try{if(window.pywebview&&window.pywebview.api&&window.pywebview.api[a==='max'?'toggle_max':a]){window.pywebview.api[a==='max'?'toggle_max':a]();return;}}catch(e){}fetch('/api/win/'+a,{method:'POST'}).catch(function(){});}
 async function loadModels(){try{var r=await fetch('/api/models');var j=await r.json();window.mdefs=j.defaults||{};var s=document.getElementById('model');s.innerHTML='';j.models.forEach(function(m){var o=document.createElement('option');o.value=m;o.textContent=m.length>30?m.slice(0,30)+'…':m;if(m===j.current)o.selected=true;s.appendChild(o);});var d=window.mdefs[j.current];if(d&&d.temp!==undefined){document.getElementById('temp').value=d.temp;document.getElementById('tempv').textContent=d.temp;}}catch(e){}}
 async function switchModel(){var m=document.getElementById('model').value;var st=document.getElementById('status');document.getElementById('model').disabled=true;st.textContent='Loading '+m+' — minutes for big models…';try{await fetch('/api/switch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:m})});}catch(e){st.textContent='Error: '+e;document.getElementById('model').disabled=false;return;}var iv=setInterval(async function(){try{var r=await fetch('/api/switch-status');var j=await r.json();if(j.state==='loading'){st.textContent='Loading '+j.detail+'…';}else{clearInterval(iv);document.getElementById('model').disabled=false;st.textContent=(j.state==='ready'?'Model ready: ':'Switch failed: ')+j.detail;loadModels();}}catch(e){clearInterval(iv);document.getElementById('model').disabled=false;}},3000);}
 async function openHf(){document.getElementById('hfmodal').style.display='block';document.getElementById('hfq').focus();window._hfFlat=[];try{var r=await fetch('/api/models');var j=await r.json();window._dlIds=(j.models||[]).map(function(m){return m.toLowerCase();});}catch(e){window._dlIds=[];}loadLocal();}
@@ -480,6 +480,22 @@ def site_icon():
     if os.path.exists(path):
         return send_file(path, mimetype="image/x-icon")
     return "", 404
+
+
+# Native window controls. desktop.py installs the handler; in a plain browser
+# this is a harmless no-op.
+WIN_HOOK = {"fn": None}
+
+
+@app.post("/api/win/<action>")
+def win_control(action):
+    fn = WIN_HOOK.get("fn")
+    if fn:
+        try:
+            fn(action)
+        except Exception:  # noqa: BLE001 - never break the page
+            pass
+    return {"ok": True}
 
 
 def _loaded_ids() -> list:
