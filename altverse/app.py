@@ -90,45 +90,45 @@ PAGE = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Alternate Universe Browser</title>
 <style>
 body{background:#f0f0f4;color:#15141a;font-family:system-ui,"Segoe UI",Arial,sans-serif;margin:0}
-#tabstrip{display:flex;align-items:flex-end;gap:2px;padding:8px 10px 0;background:#dcd9e2}
+#tabstrip{display:flex;align-items:flex-end;gap:2px;padding:8px 10px 0;background:#e3ebe6}
 .tab{background:transparent;border-radius:10px 10px 0 0;padding:8px 12px;font-size:13px;display:flex;gap:10px;align-items:center;max-width:300px;white-space:nowrap;overflow:hidden;cursor:pointer;color:#4a4a55}
 .tab:not(.active){border-left:1px solid #c0bec8}
-.tab:not(.active):hover{background:#d2cfd9}
-.tab.active{background:#ffffff;border:1px solid #cfcfd8;border-bottom:0;color:#15141a}
+.tab:not(.active):hover{background:#d5e2da}
+.tab.active{background:#f2f5f3;border:1px solid #ccd6d0;border-bottom:0;color:#15141a}
 .tablabel{overflow:hidden;text-overflow:ellipsis}
 .tabx{cursor:pointer;color:#6d6d80;border-radius:4px;padding:0 4px;flex:none}
-.tabx:hover{background:#d8d6e0}
+.tabx:hover{background:#dbe6df}
 #newtab{cursor:pointer;color:#4a4a55;font-size:18px;padding:2px 8px;border-radius:6px}
-#newtab:hover{background:#d8d6e0}
+#newtab:hover{background:#dbe6df}
 .hfrow{padding:10px 6px;border-bottom:1px solid #ddd;border-radius:8px}
-.hfrow:hover{background:#e9e8ef}
-.hfbtn{background:#0060df;color:#fff;border:0;border-radius:6px;padding:5px 12px;font-size:13px;cursor:pointer}
-.hfbtn:hover{background:#004fc4}
+.hfrow:hover{background:#e8f0ea}
+.hfbtn{background:#1a7f37;color:#fff;border:0;border-radius:6px;padding:5px 12px;font-size:13px;cursor:pointer}
+.hfbtn:hover{background:#146c2e}
 .hfimp{background:#238636}
 .hfimp:hover{background:#1c6e2c}
 .hfdl{display:inline-block;background:#dff5e1;color:#1a7f37;border-radius:10px;padding:2px 8px;font-size:12px;margin-left:6px}
 .hffile{padding:3px 0 3px 12px;border-radius:6px}
-.hffile:hover{background:#e9e8ef}
-.hfprog{height:6px;background:#dcdce4;border-radius:3px;overflow:hidden;margin-top:6px}
-.hfprog>div{height:100%;width:30%;background:#0060df;border-radius:3px;animation:hfslide 1s linear infinite}
+.hffile:hover{background:#e8f0ea}
+.hfprog{height:6px;background:#dbe6df;border-radius:3px;overflow:hidden;margin-top:6px}
+.hfprog>div{height:100%;width:30%;background:#1a7f37;border-radius:3px;animation:hfslide 1s linear infinite}
 @keyframes hfslide{from{margin-left:-30%}to{margin-left:100%}}
 @keyframes tabIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:none}}
 .tab.fresh{animation:tabIn .22s ease-out}
-.tab .dot{animation:pulse 1.1s ease-in-out infinite;color:#0060df;font-weight:bold;margin-left:2px}
+.tab .dot{animation:pulse 1.1s ease-in-out infinite;color:#1a7f37;font-weight:bold;margin-left:2px}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
 .tablabel{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
-#toolbar{display:flex;gap:2px;padding:8px 10px;background:#ffffff;align-items:center}
+#toolbar{display:flex;gap:2px;padding:8px 10px;background:#f2f5f3;align-items:center}
 button{background:transparent;border:0;color:#15141a;font-size:16px;padding:7px 9px;border-radius:7px;cursor:pointer}
-button:hover:not(:disabled){background:#dcdce4}
+button:hover:not(:disabled){background:#dbe6df}
 button:disabled{opacity:.35;cursor:default}
 #url{flex:1;border-radius:20px;background:#fff;border:1px solid #cfcfd8;padding:9px 16px;font-size:14px;color:#15141a;min-width:120px}
 #year{width:78px;border-radius:20px;background:#fff;border:1px solid #cfcfd8;padding:9px 10px;font-size:14px;color:#15141a}
 #aibar{display:flex;gap:10px;padding:7px 12px;background:#e8e7ee;border-top:1px solid #d5d3dd;align-items:center;font-size:13px;color:#3a3a44}
-#go{background:#0060df;border-color:#0060df;color:#fff;font-weight:600;font-size:14px;padding:8px 16px;border-radius:8px}
+#go{background:#1a7f37;border-color:#1a7f37;color:#fff;font-weight:600;font-size:14px;padding:8px 16px;border-radius:8px}
 #stop{background:#d70022;border-color:#d70022;color:#fff;font-weight:600;font-size:14px;padding:8px 14px;border-radius:8px}
 #model{background:#fff;border:1px solid #cfcfd8;border-radius:8px;padding:7px;font-size:13px;color:#15141a;max-width:230px}
 #aibar label{display:flex;gap:5px;align-items:center}
-#temp{width:90px;vertical-align:middle;accent-color:#0060df}
+#temp{width:90px;vertical-align:middle;accent-color:#1a7f37}
 #tempv{min-width:28px}
 #status{padding:6px 14px;color:#5b5b66;font-size:12px;min-height:18px;background:#f0f0f4}
 iframe{width:100%;height:calc(100vh - 196px);border:0;background:#fff;display:block}
@@ -152,7 +152,7 @@ iframe{width:100%;height:calc(100vh - 196px);border:0;background:#fff;display:bl
 </div>
 <div id="hfmodal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.45);z-index:50">
 <div style="background:#f0f0f4;color:#15141a;max-width:640px;margin:8vh auto;padding:18px;border-radius:14px;max-height:80vh;overflow:auto">
-<div style="display:flex;gap:8px"><input id="hfq" placeholder="Search HuggingFace GGUFs..." style="flex:1;background:#fff;border:1px solid #cfcfd8;border-radius:8px;padding:8px 12px;font-size:14px;color:#15141a" onkeydown="if(event.key==='Enter')hfSearch()"><button id="hfgo" onclick="hfSearch()" style="background:#0060df;color:#fff;border-radius:8px;padding:8px 14px;font-size:14px">Search</button><button onclick="closeHf()" title="Close" style="background:#d8d6e0;border-radius:8px;padding:8px 12px;font-size:14px">X</button></div>
+<div style="display:flex;gap:8px"><input id="hfq" placeholder="Search HuggingFace GGUFs..." style="flex:1;background:#fff;border:1px solid #cfcfd8;border-radius:8px;padding:8px 12px;font-size:14px;color:#15141a" onkeydown="if(event.key==='Enter')hfSearch()"><button id="hfgo" onclick="hfSearch()" style="background:#1a7f37;color:#fff;border-radius:8px;padding:8px 14px;font-size:14px">Search</button><button onclick="closeHf()" title="Close" style="background:#dbe6df;border-radius:8px;padding:8px 12px;font-size:14px">X</button></div>
 <div id="hflocal" style="margin-top:10px;font-size:13px;color:#555"></div>
 <div id="hfres" style="margin-top:12px;font-size:14px"></div>
 </div></div>
@@ -240,7 +240,7 @@ function scrubDisclaimers(h){return h.replace(/[^<>]*(?:fan fiction|satire|no ac
 window.addEventListener('message',function(e){var d=e.data||{};var t=activeTab();if(!t)return;var tu=(t.url||'').trim();var u=tu||'example.com';if(tu===''||tu==='home'){u='google.com';}if(d.t==='altverse-search'){if(d.q){u=u+'/search?q='+encodeURIComponent(d.q);}document.getElementById('url').value=u;query();}if(d.t==='altverse-nav'){document.getElementById('url').value=d.url;query();}});
 let tabs=[],activeId=0,nextId=1,genLock=null,genQueue=[];
 var freshTabs={},lastStripSig='';
-var HOMEHTML='<!DOCTYPE html><html><head><meta charset="utf-8"><title>New Timeline</title><style>body{margin:0;background:#f4f2fa;font-family:system-ui,Segoe UI,Arial,sans-serif;color:#15141a}main{max-width:620px;margin:11vh auto 0;text-align:center;padding:0 20px}h1{font-size:46px;margin:0 0 4px;font-weight:800}h1 .a{color:#0060df}p.sub{color:#5b5b66;margin:0 0 26px;font-size:15px}form{display:flex;gap:8px;justify-content:center}input[type=text]{flex:1;max-width:400px;padding:12px 18px;font-size:15px;border-radius:24px;border:1px solid #cfcfd8}button{padding:12px 22px;font-size:15px;border-radius:24px;border:0;background:#0060df;color:#fff;cursor:pointer}.tiles{display:flex;gap:10px;justify-content:center;margin-top:32px;flex-wrap:wrap}.tiles a{display:block;width:148px;padding:14px 8px;background:#fff;border:1px solid #e2e0e8;border-radius:12px;text-decoration:none;color:#15141a;font-size:13px}.tiles a b{display:block;font-size:14px;margin-bottom:4px}.tiles a span{color:#5b5b66;font-size:12px}</style></head><body><main><h1><span class="a">A</span>ltVerse</h1><p class="sub">Every timeline ever. None of it true.</p><form method="get" action="#"><input type="text" name="q" placeholder="Search the multiverse..."><button type="submit">Search</button></form><div class="tiles"><a href="youtube.com"><b>YouTube</b><span>Static &amp; loud</span></a><a href="myspace.com"><b>MySpace</b><span>Top 8 included</span></a><a href="google.com"><b>Google</b><span>Do the obvious</span></a></div></main></body></html>';
+var HOMEHTML='<!DOCTYPE html><html><head><meta charset="utf-8"><title>New Timeline</title><style>body{margin:0;background:#f4f2fa;font-family:system-ui,Segoe UI,Arial,sans-serif;color:#15141a}main{max-width:620px;margin:11vh auto 0;text-align:center;padding:0 20px}h1{font-size:46px;margin:0 0 4px;font-weight:800}h1 .a{color:#1a7f37}p.sub{color:#5b5b66;margin:0 0 26px;font-size:15px}form{display:flex;gap:8px;justify-content:center}input[type=text]{flex:1;max-width:400px;padding:12px 18px;font-size:15px;border-radius:24px;border:1px solid #cfcfd8}button{padding:12px 22px;font-size:15px;border-radius:24px;border:0;background:#1a7f37;color:#fff;cursor:pointer}.tiles{display:flex;gap:10px;justify-content:center;margin-top:32px;flex-wrap:wrap}.tiles a{display:block;width:148px;padding:14px 8px;background:#fff;border:1px solid #e2e0e8;border-radius:12px;text-decoration:none;color:#15141a;font-size:13px}.tiles a b{display:block;font-size:14px;margin-bottom:4px}.tiles a span{color:#5b5b66;font-size:12px}</style></head><body><main><h1><span class="a">A</span>ltVerse</h1><p class="sub">Every timeline ever. None of it true.</p><form method="get" action="#"><input type="text" name="q" placeholder="Search the multiverse..."><button type="submit">Search</button></form><div class="tiles"><a href="youtube.com"><b>YouTube</b><span>Static &amp; loud</span></a><a href="myspace.com"><b>MySpace</b><span>Top 8 included</span></a><a href="google.com"><b>Google</b><span>Do the obvious</span></a></div></main></body></html>';
 function homeState(t){t.url='';t.year=new Date().getFullYear();t.hist=[{url:'home',year:'',html:HOMEHTML}];t.hi=0;t.html=HOMEHTML;t.toks=0;t.started=false;t.queued=false;t.ctrl=null;t.status='';t.dead=false;}
 var VOIDSRC="<body style='background:#fff;color:#888;font-family:sans-serif'><p style='padding:40px'>The void awaits your query&hellip;</p>";
 function activeTab(){for(var i=0;i<tabs.length;i++)if(tabs[i].id===activeId)return tabs[i];return null;}

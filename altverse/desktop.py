@@ -34,14 +34,14 @@ def _log(msg):
 SPLASH = """<!DOCTYPE html><html><head><meta charset="utf-8">
 <style>
 body{margin:0;height:100vh;display:flex;flex-direction:column;align-items:center;
-justify-content:center;background:#f4f2fa;color:#15141a;
+justify-content:center;background:#f2f5f3;color:#15141a;
 font-family:system-ui,Segoe UI,Arial,sans-serif}
 h1{font-size:44px;margin:0 0 6px;font-weight:800}p{color:#5b5b66;margin:0 0 26px}
-.spin{width:34px;height:34px;border:4px solid #dcd9e2;border-top-color:#0060df;
+.spin{width:34px;height:34px;border:4px solid #dbe6df;border-top-color:#1a7f37;
 border-radius:50%;animation:s 1s linear infinite}@keyframes s{to{transform:rotate(360deg)}}
 #msg{margin-top:14px;font-size:13px;color:#6d6d80}
 </style></head><body>
-<h1><span style="color:#0060df">A</span>ltVerse</h1>
+<h1><span style="color:#1a7f37">A</span>ltVerse</h1>
 <p>Every timeline ever. None of it true.</p>
 <div class="spin"></div><div id="msg">Starting up&hellip;</div>
 </body></html>"""
@@ -161,23 +161,36 @@ def ensure_model(update_msg):
 
 
 def _set_icon():
-    """Give the native window the AltVerse icon (taskbar + titlebar)."""
+    """Give the native window the AltVerse icon (titlebar + taskbar + alt-tab)."""
+    if os.name != "nt":
+        return
     try:
         ico = os.path.join(HERE, "icon.ico")
         if not os.path.exists(ico):
+            _log("icon: icon.ico missing")
             return
         u32 = ctypes.windll.user32
-        hwnd = u32.FindWindowW(None, TITLE)
+        IMAGE_ICON, LR_LOADFROMFILE = 1, 0x10
+        WM_SETICON, ICON_SMALL, ICON_BIG = 0x0080, 0, 1
+
+        hwnd = 0
+        for _ in range(24):  # window may not exist the instant we start
+            hwnd = u32.FindWindowW(None, TITLE)
+            if hwnd:
+                break
+            time.sleep(0.5)
         if not hwnd:
+            _log("icon: window handle not found")
             return
-        IMAGE_ICON, LR_LOADFROMFILE, LR_DEFAULTSIZE = 1, 0x10, 0x40
+
         for size in (16, 32, 48, 256):
             h = u32.LoadImageW(0, ico, IMAGE_ICON, size, size, LR_LOADFROMFILE)
             if h:
-                u32.SendMessageW(hwnd, 0x0080, 0, h)   # ICON_SMALL
-                u32.SendMessageW(hwnd, 0x0080, 1, h)   # ICON_BIG
-    except Exception:  # noqa: BLE001 - icon is cosmetic, never fatal
-        pass
+                u32.SendMessageW(hwnd, WM_SETICON, ICON_SMALL, h)
+                u32.SendMessageW(hwnd, WM_SETICON, ICON_BIG, h)
+        _log("icon: applied to hwnd %s" % hwnd)
+    except Exception as e:  # noqa: BLE001 - icon is cosmetic, never fatal
+        _log("icon error: " + repr(e))
 
 
 def ensure_shortcut():
@@ -235,7 +248,7 @@ def main():
     import webview  # imported late so deps can install first
 
     window = webview.create_window(TITLE, html=SPLASH, width=1280, height=820,
-                                   min_size=(900, 600), background_color="#f4f2fa")
+                                   min_size=(900, 600), background_color="#f2f5f3")
 
     def boot():
         def msg(text):
