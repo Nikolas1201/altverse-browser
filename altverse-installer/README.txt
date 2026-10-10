@@ -2,16 +2,19 @@ AltVerse Browser - local AI alternate-universe browser
 ====================================================
 
 INSTALL: run AltVerseSetup.exe, pick a model on the AI Model page,
-keep "Download the AI model now" checked, and it launches by itself.
-A couple of clicks, then everything works. Updates are detected
-automatically (back to v1.0.0) and keep your model choice.
+keep going, and it sets itself up - a progress bar shows each step
+(installing Python / Lemonade / the model) with no terminal windows
+and no questions to answer. It launches when done.
 
-WHAT IT INSTALLS FOR YOU:
+WHAT IT INSTALLS FOR YOU (all automatic, no typing):
 - Python (if missing), via winget
 - Lemonade Server (the local AI backend), via winget
 - WebView2 runtime (powers the app window), via winget
 - the Python packages (flask, requests, pywebview, waitress)
 - the AI model you picked
+
+Updates are detected automatically (back to v1.0.0) and keep your
+model choice.
 
 HOW IT RUNS:
 AltVerse opens as its own desktop window - no Chrome, Edge or Firefox is

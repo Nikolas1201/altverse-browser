@@ -1,6 +1,6 @@
 ; AltVerse Browser installer - includes a model picker wizard page.
 #define MyAppName "AltVerse Browser"
-#define MyAppVersion "1.5.4"
+#define MyAppVersion "1.6.0"
 
 [Setup]
 AppName={#MyAppName}
@@ -19,6 +19,7 @@ Source: "..\altverse\app.py"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\altverse\desktop.py"; DestDir: "{app}"; Flags: ignoreversion
 Source: "Launcher.bat"; DestDir: "{app}"; DestName: "AltVerse.bat"; Flags: ignoreversion
 Source: "SetupDeps.bat"; DestDir: "{app}"; Flags: ignoreversion
+Source: "SetupAll.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "DownloadModel.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "CudaWin10.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "EnsureLemonade.bat"; DestDir: "{app}"; Flags: ignoreversion
@@ -29,12 +30,7 @@ Source: "README.txt"; DestDir: "{app}"; Flags: ignoreversion
 Name: "{autodesktop}\AltVerse Browser"; Filename: "{app}\AltVerse.bat"; WorkingDir: "{app}"; IconFilename: "{app}\icon.ico"
 
 [Run]
-Filename: "winget"; Parameters: "install --id Python.Python.3.12 -e --accept-source-agreements --accept-package-agreements"; Description: "Install Python 3.12 (required, one-time admin prompt)"; Flags: postinstall; Check: NeedsPython
-Filename: "winget"; Parameters: "install --id AMD.LemonadeServer -e --accept-source-agreements --accept-package-agreements"; Description: "Install Lemonade Server (AI backend, one-time admin prompt)"; Flags: postinstall; Check: NeedsLemonade
-Filename: "winget"; Parameters: "install --id Microsoft.EdgeWebView2Runtime -e --accept-source-agreements --accept-package-agreements"; Description: "Install WebView2 runtime (powers the native window)"; Flags: postinstall; Check: NeedsWebView2
-Filename: "{app}\SetupDeps.bat"; Description: "Install Python packages (flask, requests, pywebview)"; Flags: postinstall
-Filename: "{app}\DownloadModel.bat"; Description: "Download the AI model now (required before first launch)"; Flags: postinstall
-Filename: "{app}\AltVerse.bat"; Description: "Launch AltVerse Browser now"; Flags: postinstall nowait skipifsilent
+Filename: "{userdesktop}\AltVerse Browser.lnk"; Description: "Launch AltVerse Browser"; Flags: postinstall nowait skipifsilent
 
 [Code]
 var
@@ -48,6 +44,7 @@ var
   VRAM_MB: Integer;
   PrevFound: Boolean;
   PrevDir, PrevModel: String;
+  ProgressPage: TOutputProgressWizardPage;
 
 function CmdOk(const Cmd: String): Boolean;
 var
@@ -310,6 +307,9 @@ begin
     RecIdx := FindModelExact(PrevModel);
     if RecIdx >= 0 then RadioOpts[RecIdx].Checked := True;
   end;
+
+  ProgressPage := CreateOutputProgressPage('Setting up AltVerse',
+    'Installing everything for you. No typing needed.');
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
@@ -325,6 +325,95 @@ begin
   end;
 end;
 
+function FindPythonw(): String;
+var
+  Tmp: String;
+  S: AnsiString;
+  Code, I: Integer;
+begin
+  Result := '';
+  Tmp := ExpandConstant('{tmp}\pyw.txt');
+  DeleteFile(Tmp);
+  Exec('cmd.exe', '/c py -3.11 -c "import sys,os;print(os.path.join(os.path.dirname(sys.executable),''pythonw.exe''))" > "' + Tmp + '" 2>nul', '', SW_HIDE, ewWaitUntilTerminated, Code);
+  if LoadStringFromFile(Tmp, S) then
+  begin
+    S := Trim(S);
+    I := Pos(#13, S); if I > 0 then S := Copy(S, 1, I - 1);
+    I := Pos(#10, S); if I > 0 then S := Copy(S, 1, I - 1);
+    if (S <> '') and FileExists(S) then Result := S;
+  end;
+  DeleteFile(Tmp);
+  if Result = '' then
+  begin
+    Exec('cmd.exe', '/c py -3 -c "import sys,os;print(os.path.join(os.path.dirname(sys.executable),''pythonw.exe''))" > "' + Tmp + '" 2>nul', '', SW_HIDE, ewWaitUntilTerminated, Code);
+    if LoadStringFromFile(Tmp, S) then
+    begin
+      S := Trim(S);
+      I := Pos(#13, S); if I > 0 then S := Copy(S, 1, I - 1);
+      I := Pos(#10, S); if I > 0 then S := Copy(S, 1, I - 1);
+      if (S <> '') and FileExists(S) then Result := S;
+    end;
+    DeleteFile(Tmp);
+  end;
+end;
+
+procedure MakeShortcut;
+var
+  Pyw, Ps: String;
+  Code: Integer;
+begin
+  Pyw := FindPythonw();
+  if Pyw = '' then Pyw := 'pyw';
+  Ps := '$w=New-Object -ComObject WScript.Shell;' +
+        '$s=$w.CreateShortcut(''' + ExpandConstant('{userdesktop}\AltVerse Browser.lnk') + ''');' +
+        '$s.TargetPath=''' + Pyw + ''';' +
+        '$s.Arguments=''"' + ExpandConstant('{app}\desktop.py') + '"'';' +
+        '$s.WorkingDirectory=''' + ExpandConstant('{app}') + ''';' +
+        '$s.IconLocation=''' + ExpandConstant('{app}\icon.ico') + ''';' +
+        '$s.Save()';
+  Exec('powershell.exe', '-NoProfile -Command "' + Ps + '"', '', SW_HIDE, ewWaitUntilTerminated, Code);
+end;
+
+procedure RunSetupAll;
+var
+  Ps1, StatusFile, Line, Msg: String;
+  S: AnsiString;
+  Code, P, Pct, Tries: Integer;
+begin
+  StatusFile := GetEnv('TEMP') + '\altverse-setup.status';
+  DeleteFile(StatusFile);
+  Ps1 := ExpandConstant('{app}\SetupAll.ps1');
+  ProgressPage.SetText('Preparing...', '');
+  ProgressPage.SetProgress(0, 100);
+  Exec('powershell.exe',
+       '-NoProfile -ExecutionPolicy Bypass -File "' + Ps1 + '"',
+       ExpandConstant('{app}'), SW_HIDE, ewNoWait, Code);
+  Tries := 0;
+  Msg := '';
+  repeat
+    Sleep(200);
+    Tries := Tries + 1;
+    if LoadStringFromFile(StatusFile, S) then
+    begin
+      Line := Trim(S);
+      P := Pos('|', Line);
+      if P > 0 then
+      begin
+        Pct := StrToIntDef(Copy(Line, 1, P - 1), 0);
+        Msg := Copy(Line, P + 1, Length(Line) - P);
+        ProgressPage.SetText(Msg, '');
+        ProgressPage.SetProgress(Pct, 100);
+      end;
+    end;
+    if Msg = 'DONE' then Break;
+    if Pos('ERROR|', Msg) = 1 then Break;
+  until Tries > 9000;
+  ProgressPage.Hide;
+  if Pos('ERROR|', Msg) = 1 then
+    MsgBox('AltVerse could not finish setup:' + #13#10 + #13#10 +
+           Copy(Msg, 7, Length(Msg)), mbError, MB_OK);
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   Idx: Integer;
@@ -336,5 +425,7 @@ begin
       OptModels[Idx] + #13#10 + OptCtx[Idx] + #13#10, False);
     if IsFreshInstall() then
       DeleteFile(ExpandConstant('{app}\server.log'));
+    RunSetupAll;
+    MakeShortcut;
   end;
 end;
