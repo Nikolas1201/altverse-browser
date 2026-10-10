@@ -249,6 +249,7 @@ class _WinApi:
     def __init__(self):
         self.window = None
         self.maxed = False
+        self._saved = None
 
     def minimize(self):
         try:
@@ -256,13 +257,32 @@ class _WinApi:
         except Exception:  # noqa: BLE001 - cosmetic
             pass
 
+    @staticmethod
+    def _work_area():
+        """Screen minus the taskbar, so maximizing never hides it."""
+        import ctypes
+        from ctypes import wintypes
+        r = wintypes.RECT()
+        ctypes.windll.user32.SystemParametersInfoW(0x0030, 0, ctypes.byref(r), 0)
+        return r.left, r.top, r.right - r.left, r.bottom - r.top
+
     def toggle_max(self):
         try:
-            if self.maxed:
-                self.window.restore()
+            if not self.maxed:
+                try:
+                    self._saved = (self.window.x, self.window.y,
+                                   self.window.width, self.window.height)
+                except Exception:  # noqa: BLE001 - geometry not exposed
+                    self._saved = None
+                x, y, w, h = self._work_area()
+                self.window.move(x, y)
+                self.window.resize(w, h)
+                self.maxed = True
             else:
-                self.window.maximize()
-            self.maxed = not self.maxed
+                sx, sy, sw, sh = self._saved or (80, 60, 1280, 820)
+                self.window.move(sx, sy)
+                self.window.resize(sw, sh)
+                self.maxed = False
         except Exception:  # noqa: BLE001 - cosmetic
             pass
 
