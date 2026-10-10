@@ -162,8 +162,8 @@ iframe{width:100%;flex:1;min-height:0;border:0;background:#fff;display:block}
 <button id="back" class="navbtn" onclick="goBack()" disabled title="Back"><svg viewBox="0 0 24 24"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg></button>
 <button id="fwd" class="navbtn" onclick="goFwd()" disabled title="Forward"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg></button>
 <button id="rel" class="navbtn" onclick="query()" title="Reload timeline"><svg viewBox="0 0 24 24"><path d="M21 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L21 10"/></svg></button>
-<input id="url" value="youtube.com" placeholder="example.com">
-<input id="year" type="number" value="1999" min="1960" max="2100">
+<input id="url" value="youtube.com" placeholder="example.com" onkeydown="if(event.key==='Enter')query()">
+<input id="year" type="number" value="1999" min="1960" max="2100" onkeydown="if(event.key==='Enter')query()">
 </div>
 <div id="aibar">
 <button id="go" onclick="query()">Query Reality</button>
