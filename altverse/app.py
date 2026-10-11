@@ -83,6 +83,10 @@ SYSTEM_PROMPT = (
     "no 'satire', no 'fictional', no 'fake entry', no 'do not buy/seek', no "
     "'not affiliated' sentences anywhere on the page. Present everything as fact. "
     "Output ONLY raw, valid HTML with inline CSS (a complete <!DOCTYPE html> document). "
+    "Put the styling in a <style> block in the <head> that covers the body, the "
+    "header, the main content and the footer; a page left at the browser's default "
+    "look is a failed render, so always set body background, text colour, "
+    "font-family and font sizes. "
     "Rules: NO markdown, NO code fences, NO triple backticks, NO explanations "
     "before or after the HTML. The very first characters of your reply must be "
     "'<!DOCTYPE' or '<html'. Style the page to match the requested era's web "
@@ -285,7 +289,8 @@ function ensureCharset(h){if(/<meta[^>]*charset/i.test(h))return h;var m=h.match
 var HOOK='<script>(function(){function q(f){var i=f.querySelector("input[type=text],input[type=search],input:not([type])");return i?i.value:"";}function nq(el){var c=el.parentElement;for(var i=0;i<5&&c;i++){var inp=c.querySelector("input[type=text],input[type=search],input:not([type])");if(inp)return inp.value;c=c.parentElement;}var g=document.querySelector("input[type=text],input[type=search],input:not([type])");return g?g.value:"";}document.addEventListener("submit",function(e){e.preventDefault();parent.postMessage({t:"altverse-search",q:q(e.target)},"*");},true);document.addEventListener("click",function(e){var b=e.target.closest("button,input[type=submit],input[type=button]");if(b){e.preventDefault();var f=b.closest("form");parent.postMessage({t:"altverse-search",q:f?q(f):nq(b)},"*");return;}var a=e.target.closest("a");if(a&&a.getAttribute("href")){e.preventDefault();parent.postMessage({t:"altverse-nav",url:a.getAttribute("href")},"*");}},true);})();<\/script>';
 function setSrc(h){h=ensureCharset(h);if(/<\/body\s*>/i.test(h))h=h.replace(/<\/body\s*>/i,HOOK+'</body>');else h+=HOOK;document.getElementById('view').srcdoc=h;}
 function textExcerpt(h){var t=h.replace(/<script[\s\S]*?<\/script>/gi,' ').replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<[^>]+>/g,' ');return t.replace(/\s+/g,' ').trim().slice(0,600);}
-function scrubDisclaimers(h){return h.replace(/[^<>]*(?:fan fiction|satire|no actual shoes|fictional|fake entry|do not buy|do not seek|not affiliated|entertainment purposes only|important note\s*:)[^.]*\./gi,'');}
+function stripFence(h){h=h||'';var m=h.match(/^\\s*```[a-zA-Z]*[ \\t]*\\r?\\n([\\s\\S]*?)\\r?\\n?```\\s*$/);if(m)return m[1].trim();h=h.replace(/^\\s*```[a-zA-Z]*[ \\t]*\\r?\\n?/,'');return h.replace(/\\r?\\n?[ \\t]*```\\s*$/,'').trim();}
+function scrubDisclaimers(h){return stripFence(h).replace(/[^<>]*(?:fan fiction|satire|no actual shoes|fictional|fake entry|do not buy|do not seek|not affiliated|entertainment purposes only|important note\s*:)[^.]*\./gi,'');}
 window.addEventListener('message',function(e){var d=e.data||{};var t=activeTab();if(!t)return;var tu=(t.url||'').trim();var u=tu||'example.com';if(tu===''||tu==='home'){u='google.com';}if(d.t==='altverse-search'){if(d.q){u=u+'/search?q='+encodeURIComponent(d.q);}document.getElementById('url').value=u;query();}if(d.t==='altverse-nav'){var nu=d.url;if(nu&&nu.charAt(0)==='/'){var cu=(tu.split('/')[0])||'example.com';nu=cu+nu;}document.getElementById('url').value=nu;query();}});
 let tabs=[],activeId=0,nextId=1,genLock=null,genQueue=[];
 var freshTabs={},lastStripSig='';
