@@ -156,13 +156,13 @@ button:disabled{opacity:.35;cursor:default}
 #tempv{min-width:28px}
 #modelwrap{position:relative;display:inline-block}
 #modelbtn{background:#fff;border:1px solid #cfcfd8;border-radius:8px;padding:7px 10px;font-size:13px;color:#15141a;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#modelpanel{display:none;position:absolute;bottom:36px;left:0;background:#fff;border:1px solid #ccd6d0;border-radius:8px;min-width:300px;max-height:340px;overflow:auto;box-shadow:0 4px 16px rgba(0,0,0,.16);z-index:60;font-size:13px;padding:4px}
+#modelpanel{display:none;position:absolute;top:36px;left:0;background:#fff;border:1px solid #ccd6d0;border-radius:8px;min-width:300px;max-height:calc(100vh - 210px);overflow:auto;box-shadow:0 4px 16px rgba(0,0,0,.16);z-index:60;font-size:13px;padding:4px}
 .modrow{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px}
 .modrow:hover{background:#e8f0ea}
 .mname{flex:1;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hfhide{font-size:12px;padding:3px 10px;flex:none}
 #hiddenwrap{position:relative}
-#hiddenpanel{display:none;position:absolute;bottom:36px;left:0;background:#fff;border:1px solid #ccd6d0;border-radius:8px;min-width:280px;max-height:320px;overflow:auto;box-shadow:0 4px 16px rgba(0,0,0,.16);z-index:60;font-size:13px;padding:4px}
+#hiddenpanel{display:none;position:absolute;top:36px;left:0;background:#fff;border:1px solid #ccd6d0;border-radius:8px;min-width:280px;max-height:calc(100vh - 210px);overflow:auto;box-shadow:0 4px 16px rgba(0,0,0,.16);z-index:60;font-size:13px;padding:4px}
 .hidrow{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px}
 .hidrow:hover{background:#e8f0ea}
 .hidrow .hname{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
