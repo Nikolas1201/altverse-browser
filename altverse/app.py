@@ -679,6 +679,12 @@ def _do_switch(model_id: str, ctx: int):
             _persist_model(model_id)
             _switch.update(state="ready", detail=model_id)
             return
+        if _still_downloading(model_id):
+            _switch.update(
+                state="error",
+                detail=(f"{model_id} is still downloading. Wait for the file to "
+                        "finish, then switch to it."))
+            return
         # exclusive loading: release EVERY other resident model first. On a 6 GB
         # card a second model starves this one and it runs several times slower,
         # so never let two share VRAM (measured: 5.3 vs 11.4 tok/s).
@@ -704,6 +710,10 @@ def _do_switch(model_id: str, ctx: int):
             _switch.update(state="ready", detail=model_id)
         else:
             err = (r.stderr or r.stdout or "unknown error")[-300:]
+            low = err.lower()
+            if "failed to start" in low or "failed to load" in low:
+                err += (" -- the model file may be incomplete or still "
+                        "downloading; check that it finished.")
             _switch.update(state="error", detail=err)
     except Exception as e:  # noqa: BLE001 - report back, never crash the server
         _switch.update(state="error", detail=str(e)[-300:])
@@ -732,6 +742,24 @@ def _model_checkpoint(mid: str) -> str:
     except Exception:  # noqa: BLE001 - Lemonade unreachable
         pass
     return ""
+
+
+def _still_downloading(mid: str) -> bool:
+    """True if this model's local file is actively growing (mid-download).
+
+    Switching to a half-written GGUF makes llama-server die with a bare
+    'failed to start', which reads as a broken model rather than one that has
+    simply not arrived yet.
+    """
+    cp = _model_checkpoint(mid)
+    if not cp or not os.path.isfile(cp):
+        return False
+    try:
+        first = os.path.getsize(cp)
+        time.sleep(2)
+        return os.path.getsize(cp) > first
+    except OSError:
+        return False
 
 
 def _load_hidden() -> set:
