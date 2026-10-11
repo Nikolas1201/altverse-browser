@@ -40,10 +40,14 @@ h1{font-size:44px;margin:0 0 6px;font-weight:800}p{color:#5b5b66;margin:0 0 26px
 .spin{width:34px;height:34px;border:4px solid #dbe6df;border-top-color:#1a7f37;
 border-radius:50%;animation:s 1s linear infinite}@keyframes s{to{transform:rotate(360deg)}}
 #msg{margin-top:14px;font-size:13px;color:#6d6d80}
+#t{margin-top:6px;font-size:12px;color:#a8a8bb}
 </style></head><body>
 <h1><span style="color:#1a7f37">A</span>ltVerse</h1>
 <p>Every timeline ever. None of it true.</p>
-<div class="spin"></div><div id="msg">Starting up&hellip;</div>
+<div class="spin"></div><div id="msg">Starting up&hellip;</div><div id="t">0s</div>
+<script>
+var s=0;setInterval(function(){s++;document.getElementById('t').textContent=s+'s';},1000);
+</script>
 </body></html>"""
 
 
@@ -59,6 +63,23 @@ def _http_ok(url, timeout=3):
         return True
     except Exception:  # noqa: BLE001 - not up yet
         return False
+
+
+def _port_open(port, timeout=1.0):
+    """Is anything listening on the loopback port at all?"""
+    import socket
+    s = socket.socket()
+    s.settimeout(timeout)
+    try:
+        s.connect((HOST, port))
+        return True
+    except Exception:  # noqa: BLE001 - nothing there
+        return False
+    finally:
+        try:
+            s.close()
+        except Exception:  # noqa: BLE001
+            pass
 
 
 def _port_ok(timeout=3):
@@ -154,6 +175,16 @@ def ensure_lemonade():
     if _lemonade_ok():
         return True
     srv = _lemonade_server_exe()
+    # If something already listens on the port, Lemonade IS running - it is
+    # just busy. Wait for it, and never launch a second server that would fight
+    # the first for the same port (that is what made startup crawl).
+    if _port_open(13305):
+        for _ in range(10):          # ~30s
+            time.sleep(3)
+            if _lemonade_ok():
+                return True
+        return True                  # up but slow: let the app retry, do not
+                                     # claim it is missing
     if not srv:
         if os.name != "nt" and _start_lemonade_linux():
             for _ in range(20):
@@ -199,17 +230,21 @@ def loaded_models():
 
 
 def ensure_model(update_msg):
-    # Anything already resident wins. Swapping costs a full reload and Lemonade
-    # will not evict a *pinned* model anyway; the Flask server adopts whatever
-    # is loaded (and rewrites model.txt to match). Only a cold start needs us
-    # to load the preferred model here.
+    """Kick the preferred model off loading, then get out of the way.
+
+    A big model can take many minutes to load (or fail), and holding the splash
+    for it is exactly what made the app look stuck. So start the load in the
+    background and open the UI immediately; the Flask server adopts the model
+    when it appears and shows the load progress in the browser while you wait.
+    """
     if loaded_models():
         return
     want = model_name()
-    update_msg(f"Loading {want} (first run can take a minute)...")
-    subprocess.run([_lemonade_cli(), "load", want],
-                   capture_output=True, text=True, timeout=1800,
-                   creationflags=CREATE_NO_WINDOW)
+    update_msg(f"Loading {want} - the first time can take a few minutes...")
+    try:
+        _hidden_popen([_lemonade_cli(), "load", want])
+    except Exception:  # noqa: BLE001 - the server will load it on demand
+        pass
 
 
 def _set_icon():
@@ -392,15 +427,32 @@ def main():
     api.window = window
 
     def boot():
+        _log("boot start")
+
+        # Let the splash paint. The page's own timer keeps ticking, so startup
+        # always looks alive even if a step below is slow.
+        time.sleep(1.0)
+
         def msg(text):
-            try:
-                window.evaluate_js(
-                    "document.getElementById('msg').textContent=" + json.dumps(text))
-            except Exception:  # noqa: BLE001 - splash may be gone
-                pass
+            _log("msg: " + text)
+            js = ("(function(){var e=document.getElementById('msg');"
+                  "if(!e)return false;e.textContent=%s;return true;})()"
+                  % json.dumps(text))
+
+            def send():
+                try:
+                    window.evaluate_js(js)
+                except Exception:  # noqa: BLE001 - splash may be gone
+                    pass
+
+            # pywebview marshals evaluate_js onto the GUI thread, and a call
+            # made before the page is ready can block forever. Run it in a
+            # worker so a message can never freeze the whole startup.
+            th = threading.Thread(target=send, daemon=True)
+            th.start()
+            th.join(timeout=5)
 
         try:
-            _log("boot start")
             state = _port_state()
             _log("port state: " + state)
             if state == "serving":

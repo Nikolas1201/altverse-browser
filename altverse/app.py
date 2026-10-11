@@ -227,6 +227,16 @@ function startGen(t){
   (async function(){
     var html='',toks=0,outcome=null;
     var stEl=document.getElementById('status');
+    var poll=setInterval(async function(){
+      if(toks>0||t.gen!==myGen){clearInterval(poll);return;}
+      try{
+        var pr=await fetch('/api/switch-status');var pj=await pr.json();
+        if(pj&&pj.state==='loading'){
+          t.status='Loading model '+pj.detail+' — the first time can take minutes…';
+          if(t.id===activeId&&t.gen===myGen)stEl.textContent=t.status;
+        }
+      }catch(e){}
+    },2500);
     try{
       const r=await fetch('/api/query',{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({url:url,year:parseInt(year),temp:parseFloat(document.getElementById('temp').value),context:document.getElementById('usemem').checked?t.hist.slice(-2).map(function(s){return{url:s.url,year:s.year,excerpt:textExcerpt(s.html)};}):[]}),signal:t.ctrl.signal});
@@ -261,6 +271,7 @@ function startGen(t){
       if(e&&e.name==='AbortError'){t.html=scrubDisclaimers(html);t.status=`Stopped — partial render (${toks} tokens).`;outcome='stopped';}
       else{t.status='Error: '+e;outcome='error';}
     }finally{
+      if(poll)clearInterval(poll);
       var mine=(t.gen===myGen);
       if(t.dead){var ix=tabs.indexOf(t);if(ix>=0)tabs.splice(ix,1);}
       if(mine&&genLock===t.id)genLock=null;
@@ -609,12 +620,20 @@ def _ensure_resident() -> bool:
 
     A stale pin can leave the wanted model unloaded while another holds the
     only slot; loading it here (which unpins/unloads others first) keeps
-    rendering alive instead of failing with a 409-shaped empty response.
+    rendering alive instead of failing with a 409-shaped empty response. The
+    launcher kicks off a load at boot, so wait for that one first rather than
+    forcing a second, competing load.
     """
     if not _current["id"]:
         return False
     if _current["id"] in _loaded_ids():
         return True
+    _switch.update(state="loading", detail=_current["id"])
+    for _ in range(15):          # ~45s grace for a load already in flight
+        time.sleep(3)
+        if _current["id"] in _loaded_ids():
+            _switch.update(state="ready", detail=_current["id"])
+            return True
     ctx = MODEL_PRESETS.get(_current["id"], {}).get("ctx", 4096)
     _do_switch(_current["id"], ctx)
     return _switch["state"] == "ready"
