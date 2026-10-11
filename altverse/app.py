@@ -42,9 +42,19 @@ MAX_TOKENS = 3600
 TIMEOUT = 600
 
 LLAMACPP_ARGS = "--flash-attn on --parallel 1 --cache-type-k q8_0 --cache-type-v q8_0 --threads 5 --threads-batch 5"
+# MoE tuning: n-cpu-moe 38 keeps the expert layers that must stream from RAM to a
+# minimum (measured ~2x here), and ngram-map-k adds speculative decoding with no
+# extra VRAM. Both were benchmarked on this machine; see the model presets.
+MOE_ARGS = ("--n-cpu-moe 38 --spec-type ngram-map-k --flash-attn on --parallel 1 "
+            "--cache-type-k q8_0 --cache-type-v q8_0 --threads 5 --threads-batch 5")
 MODEL_PRESETS = {
-    "Qwen3-4B-Instruct-2507-GGUF": {"ctx": 4096, "temp": 0.6, "max": 3600},
-    "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M": {"ctx": 8192, "temp": 0.7, "max": 3600},
+    "Qwen3-4B-Instruct-2507-GGUF": {
+        "ctx": 4096, "temp": 0.6, "max": 3600,
+        # dense + fully GPU-resident: f16 KV beat q8_0, and n-gram spec only
+        # slowed prompt processing here (both measured).
+        "args": "--flash-attn on --parallel 1 --threads 5 --threads-batch 5"},
+    "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M": {"ctx": 8192, "temp": 0.7, "max": 3600,
+                                             "args": MOE_ARGS},
     "Qwen3-0.6B-GGUF": {"ctx": 2048, "temp": 0.2, "max": 700, "simple": True},
 }
 DEFAULT_TEMP, DEFAULT_MAX = 0.6, 3600
@@ -555,7 +565,8 @@ def _do_switch(model_id: str, ctx: int):
                            capture_output=True, text=True, timeout=300)
         r = subprocess.run(
             ["lemonade", "load", model_id, "--llamacpp", BACKEND,
-             "--ctx-size", str(ctx), "--llamacpp-args", LLAMACPP_ARGS,
+             "--ctx-size", str(ctx), "--llamacpp-args",
+             MODEL_PRESETS.get(model_id, {}).get("args", LLAMACPP_ARGS),
              "--save-options"],
             capture_output=True, text=True, timeout=1200,
         )
