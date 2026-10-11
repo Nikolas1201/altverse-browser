@@ -60,6 +60,7 @@ MODEL_PRESETS = {
 DEFAULT_TEMP, DEFAULT_MAX = 0.6, 3600
 _current = {"id": MODEL}
 _switch = {"state": "idle", "detail": ""}
+_boot = {"adopted": False}
 
 
 def _gen_params(model_id: str, data: dict) -> tuple:
@@ -274,7 +275,7 @@ var HOOK='<script>(function(){function q(f){var i=f.querySelector("input[type=te
 function setSrc(h){h=ensureCharset(h);if(/<\/body\s*>/i.test(h))h=h.replace(/<\/body\s*>/i,HOOK+'</body>');else h+=HOOK;document.getElementById('view').srcdoc=h;}
 function textExcerpt(h){var t=h.replace(/<script[\s\S]*?<\/script>/gi,' ').replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<[^>]+>/g,' ');return t.replace(/\s+/g,' ').trim().slice(0,600);}
 function scrubDisclaimers(h){return h.replace(/[^<>]*(?:fan fiction|satire|no actual shoes|fictional|fake entry|do not buy|do not seek|not affiliated|entertainment purposes only|important note\s*:)[^.]*\./gi,'');}
-window.addEventListener('message',function(e){var d=e.data||{};var t=activeTab();if(!t)return;var tu=(t.url||'').trim();var u=tu||'example.com';if(tu===''||tu==='home'){u='google.com';}if(d.t==='altverse-search'){if(d.q){u=u+'/search?q='+encodeURIComponent(d.q);}document.getElementById('url').value=u;query();}if(d.t==='altverse-nav'){document.getElementById('url').value=d.url;query();}});
+window.addEventListener('message',function(e){var d=e.data||{};var t=activeTab();if(!t)return;var tu=(t.url||'').trim();var u=tu||'example.com';if(tu===''||tu==='home'){u='google.com';}if(d.t==='altverse-search'){if(d.q){u=u+'/search?q='+encodeURIComponent(d.q);}document.getElementById('url').value=u;query();}if(d.t==='altverse-nav'){var nu=d.url;if(nu&&nu.charAt(0)==='/'){var cu=(tu.split('/')[0])||'example.com';nu=cu+nu;}document.getElementById('url').value=nu;query();}});
 let tabs=[],activeId=0,nextId=1,genLock=null,genQueue=[];
 var freshTabs={},lastStripSig='';
 var HOMEHTML='<!DOCTYPE html><html><head><meta charset="utf-8"><title>New Timeline</title><style>body{margin:0;background:#f4f2fa;font-family:system-ui,Segoe UI,Arial,sans-serif;color:#15141a}main{max-width:620px;margin:11vh auto 0;text-align:center;padding:0 20px}h1{font-size:46px;margin:0 0 4px;font-weight:800}h1 .a{color:#1a7f37}p.sub{color:#5b5b66;margin:0 0 26px;font-size:15px}form{display:flex;gap:8px;justify-content:center}input[type=text]{flex:1;max-width:400px;padding:12px 18px;font-size:15px;border-radius:24px;border:1px solid #cfcfd8}button{padding:12px 22px;font-size:15px;border-radius:24px;border:0;background:#1a7f37;color:#fff;cursor:pointer}.tiles{display:flex;gap:10px;justify-content:center;margin-top:32px;flex-wrap:wrap}.tiles a{display:block;width:148px;padding:14px 8px;background:#fff;border:1px solid #e2e0e8;border-radius:12px;text-decoration:none;color:#15141a;font-size:13px}.tiles a b{display:block;font-size:14px;margin-bottom:4px}.tiles a span{color:#5b5b66;font-size:12px}</style></head><body><main><h1><span class="a">A</span>ltVerse</h1><p class="sub">Every timeline ever. None of it true.</p><form method="get" action="#"><input type="text" name="q" placeholder="Search the multiverse..."><button type="submit">Search</button></form><div class="tiles"><a href="youtube.com"><b>YouTube</b><span>Static &amp; loud</span></a><a href="myspace.com"><b>MySpace</b><span>Top 8 included</span></a><a href="google.com"><b>Google</b><span>Do the obvious</span></a></div></main></body></html>';
@@ -420,16 +421,29 @@ def build_messages(url: str, year: int, context: list | None = None,
     if "youtube" in u:
         if "watch" in u or "v=" in u:
             extra += (
-                " Build a YouTube WATCH page: big black video player rectangle, "
-                "bold video title below it, Like Dislike Share buttons, "
-                "3 viewer comments with usernames."
+                " Build a YouTube WATCH page. Required in this order: "
+                "1) a big black 16:9 video player rectangle with a grey play triangle (no real video). "
+                "2) the video title in bold. "
+                "3) a channel row: channel name, subscriber count, and a red Subscribe button. "
+                "4) a view count and upload date line. "
+                "5) a Like button showing a count (e.g. '1.2K'), a Dislike button showing a different "
+                "count (e.g. '34'), plus Share and Save. "
+                "6) a description box with 3 short lines. "
+                "7) a COMMENTS section: a heading like 'Comments (248)', then at least 5 comments. "
+                "Each comment has a colored circle avatar, a username, a time such as '3 days ago', "
+                "one or two lines of text, and its own like count. "
+                "8) a right-hand sidebar of 4 RELATED videos, each a small colored thumbnail with a "
+                "title. "
+                "Every video title and thumbnail MUST be a real clickable link: <a href='/watch?v=XXXX'>."
             )
         else:
             extra += (
-                " Build a YouTube HOMEPAGE: red YOUTUBE logo top-left, one search box, "
-                "a grid of 6 video boxes. Each box: colored thumbnail rectangle, "
-                "bold title line, gray view-count line. Sidebar links: "
-                "Home, Shorts, Subscriptions."
+                " Build a YouTube HOMEPAGE. Required: a red YOUTUBE wordmark top-left, one search box "
+                "with a Search button, a left sidebar (Home, Shorts, Subscriptions, Library, History), "
+                "and a grid of 6 video cards. Each card MUST be a real clickable link "
+                "<a href='/watch?v=XXXX'> that wraps ALL of: a colored thumbnail rectangle, a bold "
+                "title line, the channel name, and a gray view count such as '1.2M views'. Clicking a "
+                "card must open its watch page, so every single card is a link, not plain text."
             )
     user_text = (
         f"URL: {url}\nYear: {year}\n"
@@ -537,14 +551,99 @@ def win_control(action):
     return {"ok": True, "maxed": maxed}
 
 
-def _loaded_ids() -> list:
+def _loaded_models() -> list:
+    """Models currently resident in Lemonade (each with its metadata)."""
     try:
         r = subprocess.run(["lemonade", "status", "--json"],
-                           capture_output=True, text=True, timeout=30)
-        return [m.get("model_name") for m in
-                json.loads(r.stdout).get("models", [])]
-    except Exception:  # noqa: BLE001 - fall through to load path
+                           capture_output=True, text=True, timeout=30,
+                           creationflags=CREATE_NO_WINDOW)
+        return json.loads(r.stdout).get("models", []) or []
+    except Exception:  # noqa: BLE001 - backend unreachable
         return []
+
+
+def _loaded_ids() -> list:
+    return [m.get("model_name") for m in _loaded_models()
+            if m.get("model_name")]
+
+
+MODEL_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "model.txt")
+
+
+def _persist_model(model_id: str):
+    """Remember the choice so the next launch starts on the same model.
+
+    This is the file desktop.py reads before it spawns this server. Nothing
+    wrote it before, so every restart fell back to the small default and then
+    collided with the model that was actually resident.
+    """
+    try:
+        ctx = MODEL_PRESETS.get(model_id, {}).get("ctx", 4096)
+        with open(MODEL_FILE, "w", encoding="utf-8") as f:
+            f.write(f"{model_id}\n{ctx}\n")
+    except OSError:  # noqa: BLE001 - non-fatal
+        pass
+
+
+def _adopt_resident() -> bool:
+    """Point _current at the model that is actually loaded.
+
+    Lemonade never evicts a *pinned* model, so once the server's idea of the
+    current model disagreed with reality (the case after every restart) each
+    request came back 409 'slots_pinned_error' and pages rendered as 0 tokens.
+    Adopting the resident model is always safe: it is the one that can answer.
+    """
+    resident = [m.get("model_name") for m in _loaded_models()
+                if m.get("model_name")]
+    if not resident:
+        return False
+    if _current["id"] not in resident:
+        _current["id"] = resident[0]
+        _switch.update(state="ready", detail=_current["id"])
+    _persist_model(_current["id"])
+    return True
+
+
+def _ensure_resident() -> bool:
+    """Guarantee the current model is loaded before asking Lemonade for text.
+
+    A stale pin can leave the wanted model unloaded while another holds the
+    only slot; loading it here (which unpins/unloads others first) keeps
+    rendering alive instead of failing with a 409-shaped empty response.
+    """
+    if not _current["id"]:
+        return False
+    if _current["id"] in _loaded_ids():
+        return True
+    ctx = MODEL_PRESETS.get(_current["id"], {}).get("ctx", 4096)
+    _do_switch(_current["id"], ctx)
+    return _switch["state"] == "ready"
+
+
+def _resp_error(r) -> str:
+    """Best-effort error text from a non-completion Lemonade response."""
+    try:
+        j = r.json()
+        return (j.get("error") or {}).get("message") or r.text
+    except Exception:  # noqa: BLE001 - non-JSON body
+        return getattr(r, "text", "") or "no response"
+
+
+def _error_page(msg) -> str:
+    """A readable page for a backend failure, never a bare 500."""
+    return (
+        "<!DOCTYPE html><html><head><meta charset='utf-8'>"
+        "<title>Timeline error</title></head>"
+        "<body style='font:15px/1.5 system-ui,Segoe UI,Arial;color:#222;"
+        "background:#faf9fc;margin:0;padding:48px'>"
+        "<h1 style='color:#b3261e;font-size:20px'>The timeline engine "
+        "stalled</h1>"
+        "<p>The AI backend returned an error instead of a page:</p>"
+        f"<pre style='white-space:pre-wrap;background:#fff;border:1px solid "
+        f"#e2e0e8;border-radius:8px;padding:14px'>{clean_text(str(msg))[:500]}"
+        "</pre><p style='color:#5b5b66'>Press Enter again, or pick another "
+        "model from the model menu.</p></body></html>"
+    )
 
 
 def _do_switch(model_id: str, ctx: int):
@@ -553,6 +652,7 @@ def _do_switch(model_id: str, ctx: int):
         if model_id in _loaded_ids():
             # already resident: flip instantly, no unload/reload cycle
             _current["id"] = model_id
+            _persist_model(model_id)
             _switch.update(state="ready", detail=model_id)
             return
         # exclusive loading: release EVERY other resident model first. On a 6 GB
@@ -576,6 +676,7 @@ def _do_switch(model_id: str, ctx: int):
                                capture_output=True, text=True, timeout=1200)
         if r.returncode == 0:
             _current["id"] = model_id
+            _persist_model(model_id)
             _switch.update(state="ready", detail=model_id)
         else:
             err = (r.stderr or r.stdout or "unknown error")[-300:]
@@ -627,6 +728,10 @@ def _save_hidden(hidden: set):
 
 @app.get("/api/models")
 def list_models():
+    # On the first poll, line the server up with whatever Lemonade actually has
+    # resident (the user's last choice), instead of the boot default.
+    if not _boot["adopted"] and _adopt_resident():
+        _boot["adopted"] = True
     try:
         r = requests.get(f"{LEMONADE_BASE}/models", timeout=15)
         data = r.json().get("data", [])
@@ -874,20 +979,50 @@ def query():
     except (TypeError, ValueError):
         year = 1999
     context = data.get("context") or []
+    if not _ensure_resident():
+        return {"html": _error_page(f"model {_current['id']!r} is not loaded")}
     temp, max_tok, simple = _gen_params(_current["id"], data)
 
-    upstream = requests.post(
-        f"{LEMONADE_BASE}/chat/completions",
-        json={
-            "model": _current["id"],
-            "messages": build_messages(url, year, context, simple),
-            "max_tokens": max_tok,
-            "temperature": temp,
-            "stream": True,
-        },
-        stream=True,
-        timeout=TIMEOUT,
-    )
+    try:
+        upstream = requests.post(
+            f"{LEMONADE_BASE}/chat/completions",
+            json={
+                "model": _current["id"],
+                "messages": build_messages(url, year, context, simple),
+                "max_tokens": max_tok,
+                "temperature": temp,
+                "stream": True,
+            },
+            stream=True,
+            timeout=TIMEOUT,
+        )
+    except requests.RequestException as e:
+        err = _error_page(
+            f"the AI backend did not answer in time ({e.__class__.__name__}). "
+            "It is probably still loading, or the GPU is busy with another app.")
+
+        def failgen():
+            yield ("data: " + json.dumps(
+                {"choices": [{"delta": {"content": err}}]},
+                ensure_ascii=False) + "\n\n")
+            yield "data: [DONE]\n\n"
+
+        return Response(stream_with_context(failgen()),
+                        mimetype="text/event-stream")
+
+    if upstream.status_code != 200:
+        body = _resp_error(upstream)
+        upstream.close()
+        err = _error_page(body)
+
+        def errgen():
+            yield ("data: " + json.dumps(
+                {"choices": [{"delta": {"content": err}}]},
+                ensure_ascii=False) + "\n\n")
+            yield "data: [DONE]\n\n"
+
+        return Response(stream_with_context(errgen()),
+                        mimetype="text/event-stream")
 
     def generate():
         buf = ""
@@ -919,21 +1054,34 @@ def render_once():
     except (TypeError, ValueError):
         year = 1999
     context = data.get("context") or []
+    if not _ensure_resident():
+        return {"html": _error_page(f"model {_current['id']!r} is not loaded")}
     temp, max_tok, simple = _gen_params(_current["id"], data)
-    r = requests.post(
-        f"{LEMONADE_BASE}/chat/completions",
-        json={
-            "model": _current["id"],
-            "messages": build_messages(url, year, context, simple),
-            "max_tokens": max_tok,
-            "temperature": temp,
-        },
-        timeout=TIMEOUT,
-    )
-    content = r.json()["choices"][0]["message"]["content"]
+    try:
+        r = requests.post(
+            f"{LEMONADE_BASE}/chat/completions",
+            json={
+                "model": _current["id"],
+                "messages": build_messages(url, year, context, simple),
+                "max_tokens": max_tok,
+                "temperature": temp,
+            },
+            timeout=TIMEOUT,
+        )
+    except requests.RequestException as e:
+        return {"html": _error_page(
+            f"the AI backend did not answer in time ({e.__class__.__name__}). "
+            "It is probably still loading, or the GPU is busy with another app.")}
+    if r.status_code != 200:
+        return {"html": _error_page(_resp_error(r))}
+    try:
+        content = r.json()["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError, ValueError):
+        return {"html": _error_page(_resp_error(r))}
     return {"html": clean_text(strip_fences(content))}
 
 
 if __name__ == "__main__":
     print(f"Model: {MODEL} via {LEMONADE_BASE} @ backend={BACKEND}")
+    _adopt_resident()
     app.run(host="127.0.0.1", port=5057, threaded=True)

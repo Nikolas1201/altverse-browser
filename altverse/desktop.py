@@ -199,9 +199,13 @@ def loaded_models():
 
 
 def ensure_model(update_msg):
-    want = model_name()
-    if want in loaded_models():
+    # Anything already resident wins. Swapping costs a full reload and Lemonade
+    # will not evict a *pinned* model anyway; the Flask server adopts whatever
+    # is loaded (and rewrites model.txt to match). Only a cold start needs us
+    # to load the preferred model here.
+    if loaded_models():
         return
+    want = model_name()
     update_msg(f"Loading {want} (first run can take a minute)...")
     subprocess.run([_lemonade_cli(), "load", want],
                    capture_output=True, text=True, timeout=1800,
