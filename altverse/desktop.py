@@ -31,6 +31,39 @@ def _log(msg):
     except Exception:  # noqa: BLE001 - logging never fatal
         pass
 
+
+# Progress is published over a tiny local HTTP endpoint instead of by calling
+# into the webview. window.evaluate_js() is marshalled onto the GUI thread and
+# can block *while holding the GIL*, freezing the whole app - the splash then
+# sits on "Starting up" forever while only its JS timer keeps counting.
+STATUS_PORT = 5058
+_status = {"msg": "Starting up\u2026"}
+
+
+def _start_status_server():
+    """Serve the current startup message to the splash page (best effort)."""
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            body = json.dumps(_status).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *args):
+            pass
+
+    try:
+        srv = ThreadingHTTPServer((HOST, STATUS_PORT), Handler)
+    except Exception:  # noqa: BLE001 - port busy: splash just shows the timer
+        return
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+
 SPLASH = """<!DOCTYPE html><html><head><meta charset="utf-8">
 <style>
 body{margin:0;height:100vh;display:flex;flex-direction:column;align-items:center;
@@ -47,6 +80,13 @@ border-radius:50%;animation:s 1s linear infinite}@keyframes s{to{transform:rotat
 <div class="spin"></div><div id="msg">Starting up&hellip;</div><div id="t">0s</div>
 <script>
 var s=0;setInterval(function(){s++;document.getElementById('t').textContent=s+'s';},1000);
+function altPoll(){
+  fetch('http://127.0.0.1:5058/status',{cache:'no-store'})
+    .then(function(r){return r.json()})
+    .then(function(j){if(j&&j.msg)document.getElementById('msg').textContent=j.msg;})
+    .catch(function(){});
+}
+altPoll();setInterval(altPoll,700);
 </script>
 </body></html>"""
 
@@ -87,8 +127,12 @@ def _port_ok(timeout=3):
     return _http_ok(f"{BASE}/api/models", timeout)
 
 
-def _lemonade_ok(timeout=3):
-    """Is the Lemonade server up (its own port, not ours)?"""
+def _lemonade_ok(timeout=5):
+    """Is the Lemonade server up (its own port, not ours)?
+
+    A busy Lemonade can take a few seconds to answer, and a false negative here
+    made startup wait on a second server that was never needed.
+    """
     return _http_ok("http://127.0.0.1:13305/api/version", timeout)
 
 
@@ -351,106 +395,96 @@ def _run_app(flask_app):
         _log("waitress error: " + repr(e))
 
 
-class _WinApi:
-    """Window controls exposed to the page (titlebar buttons)."""
+# Window controls for the custom titlebar. These are registered one at a time
+# with window.expose() instead of being passed as a single js_api object:
+# pywebview introspects a js_api *recursively* to build the JS bridge, and the
+# api <-> window reference cycle made that walk never terminate - it held the
+# GIL and froze the whole app on the "Starting up" splash.
+_WIN = {"window": None, "maxed": False, "saved": None}
 
-    def __init__(self):
-        self.window = None
-        self.maxed = False
-        self._saved = None
 
-    def minimize(self):
-        try:
-            self.window.minimize()
-        except Exception:  # noqa: BLE001 - cosmetic
-            pass
+def _work_area():
+    """Screen minus the taskbar, so maximizing never hides it (Windows only)."""
+    if os.name != "nt":
+        return None
+    import ctypes
+    from ctypes import wintypes
+    r = wintypes.RECT()
+    ctypes.windll.user32.SystemParametersInfoW(0x0030, 0, ctypes.byref(r), 0)
+    return r.left, r.top, r.right - r.left, r.bottom - r.top
 
-    @staticmethod
-    def _work_area():
-        """Screen minus the taskbar, so maximizing never hides it (Windows only)."""
+
+def minimize():
+    """Minimize the window (titlebar button)."""
+    try:
+        _WIN["window"].minimize()
+    except Exception:  # noqa: BLE001 - cosmetic
+        pass
+
+
+def toggle_max():
+    """Maximize or restore the window; returns the new maximized state."""
+    win = _WIN["window"]
+    try:
         if os.name != "nt":
-            return None
-        import ctypes
-        from ctypes import wintypes
-        r = wintypes.RECT()
-        ctypes.windll.user32.SystemParametersInfoW(0x0030, 0, ctypes.byref(r), 0)
-        return r.left, r.top, r.right - r.left, r.bottom - r.top
-
-    def toggle_max(self):
-        try:
-            if os.name != "nt":
-                if self.maxed:
-                    self.window.restore()
-                else:
-                    self.window.maximize()
-                self.maxed = not self.maxed
-                return self.maxed
-            if not self.maxed:
-                try:
-                    self._saved = (self.window.x, self.window.y,
-                                   self.window.width, self.window.height)
-                except Exception:  # noqa: BLE001 - geometry not exposed
-                    self._saved = None
-                x, y, w, h = self._work_area()
-                self.window.move(x, y)
-                self.window.resize(w, h)
-                self.maxed = True
+            if _WIN["maxed"]:
+                win.restore()
             else:
-                sx, sy, sw, sh = self._saved or (80, 60, 1280, 820)
-                self.window.move(sx, sy)
-                self.window.resize(sw, sh)
-                self.maxed = False
-        except Exception:  # noqa: BLE001 - cosmetic
-            pass
-        return self.maxed
+                win.maximize()
+            _WIN["maxed"] = not _WIN["maxed"]
+            return _WIN["maxed"]
+        if not _WIN["maxed"]:
+            try:
+                _WIN["saved"] = (win.x, win.y, win.width, win.height)
+            except Exception:  # noqa: BLE001 - geometry not exposed
+                _WIN["saved"] = None
+            x, y, w, h = _work_area()
+            win.move(x, y)
+            win.resize(w, h)
+            _WIN["maxed"] = True
+        else:
+            sx, sy, sw, sh = _WIN["saved"] or (80, 60, 1280, 820)
+            win.move(sx, sy)
+            win.resize(sw, sh)
+            _WIN["maxed"] = False
+    except Exception:  # noqa: BLE001 - cosmetic
+        pass
+    return _WIN["maxed"]
 
-    def close(self):
-        try:
-            self.window.destroy()
-        except Exception:  # noqa: BLE001 - cosmetic
-            pass
+
+def close():
+    """Close the window (titlebar button)."""
+    try:
+        _WIN["window"].destroy()
+    except Exception:  # noqa: BLE001 - cosmetic
+        pass
 
 
 def main():
     _fix_stdio()
     ensure_deps()
     ensure_shortcut()
+    _start_status_server()
     import webview  # imported late so deps can install first
 
-    api = _WinApi()
     frameless = os.environ.get("ALTVERSE_FRAMELESS",
                                    "1" if os.name == "nt" else "0") != "0"
     window = webview.create_window(
         TITLE, html=SPLASH, width=1280, height=820, min_size=(900, 600),
         background_color="#f2f5f3", frameless=frameless,
-        easy_drag=not frameless, js_api=api)
-    api.window = window
+        easy_drag=not frameless)
+    _WIN["window"] = window
+    # Register the titlebar controls individually (see _WIN above).
+    window.expose(minimize, toggle_max, close)
 
     def boot():
         _log("boot start")
 
-        # Let the splash paint. The page's own timer keeps ticking, so startup
-        # always looks alive even if a step below is slow.
-        time.sleep(1.0)
-
         def msg(text):
+            # Never touches the webview: the splash polls STATUS_PORT for this,
+            # so no step here can block on a GUI call.
             _log("msg: " + text)
-            js = ("(function(){var e=document.getElementById('msg');"
-                  "if(!e)return false;e.textContent=%s;return true;})()"
-                  % json.dumps(text))
-
-            def send():
-                try:
-                    window.evaluate_js(js)
-                except Exception:  # noqa: BLE001 - splash may be gone
-                    pass
-
-            # pywebview marshals evaluate_js onto the GUI thread, and a call
-            # made before the page is ready can block forever. Run it in a
-            # worker so a message can never freeze the whole startup.
-            th = threading.Thread(target=send, daemon=True)
-            th.start()
-            th.join(timeout=5)
+            _status["msg"] = text
 
         try:
             state = _port_state()
@@ -477,8 +511,8 @@ def main():
             import app as app_module
             _log("imported app")
             app_module.WIN_HOOK["fn"] = (
-                lambda a: api.minimize() if a == "min"
-                else api.toggle_max() if a == "max" else api.close())
+                lambda a: minimize() if a == "min"
+                else toggle_max() if a == "max" else close())
             threading.Thread(target=_run_app, args=(app_module.app,),
                              daemon=True).start()
             for _ in range(60):
