@@ -555,14 +555,15 @@ def _do_switch(model_id: str, ctx: int):
             _current["id"] = model_id
             _switch.update(state="ready", detail=model_id)
             return
-        prev = _current["id"]
-        if prev != model_id:
-            # exclusive loading: release the old model first so a big model
-            # never shares 6 GB VRAM with the previous one (OOM risk)
-            subprocess.run(["lemonade", "unpin", prev],
-                           capture_output=True, text=True, timeout=60)
-            subprocess.run(["lemonade", "unload", prev],
-                           capture_output=True, text=True, timeout=300)
+        # exclusive loading: release EVERY other resident model first. On a 6 GB
+        # card a second model starves this one and it runs several times slower,
+        # so never let two share VRAM (measured: 5.3 vs 11.4 tok/s).
+        for other in _loaded_ids():
+            if other and other != model_id:
+                subprocess.run(["lemonade", "unpin", other],
+                               capture_output=True, text=True, timeout=60)
+                subprocess.run(["lemonade", "unload", other],
+                               capture_output=True, text=True, timeout=300)
         r = subprocess.run(
             ["lemonade", "load", model_id, "--llamacpp", BACKEND,
              "--ctx-size", str(ctx), "--llamacpp-args",

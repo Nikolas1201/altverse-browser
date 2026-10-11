@@ -67,6 +67,9 @@ try {
     # 5. Make sure the Lemonade server is running
     Set-Status 63 'Starting the AI backend...'
     & "$PSScriptRoot\EnsureLemonade.bat" | Out-Null
+    # One model resident at a time: on a 6 GB card a second model starves the
+    # big one and it runs several times slower (measured).
+    & $lem config set max_loaded_models=1 | Out-Null
 
     # 6. GPU backend
     $backend = 'vulkan'
