@@ -159,7 +159,8 @@ button:disabled{opacity:.35;cursor:default}
 #temp{width:90px;vertical-align:middle;accent-color:#1a7f37}
 #tempv{min-width:28px}
 #modelwrap{position:relative;display:inline-block}
-#modelbtn{background:#fff;border:1px solid #cfcfd8;border-radius:8px;padding:7px 10px;font-size:13px;color:#15141a;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#modelbtn,#hiddenbtn,#hfbtn{background:#fff;border:1px solid #cfcfd8;border-radius:8px;padding:7px 10px;font-size:13px;color:#15141a;white-space:nowrap;line-height:1.2}
+#modelbtn{max-width:230px;overflow:hidden;text-overflow:ellipsis}
 #modelpanel{display:none;position:absolute;top:36px;left:0;background:#fff;border:1px solid #ccd6d0;border-radius:8px;min-width:300px;max-height:calc(100vh - 210px);overflow:auto;box-shadow:0 4px 16px rgba(0,0,0,.16);z-index:60;font-size:13px;padding:4px}
 .modrow{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px}
 .modrow:hover{background:#e8f0ea}
@@ -350,6 +351,13 @@ async function winCtl(a){if(a==='max'){_maxed=!_maxed;setMaxIcon(_maxed);}try{if
 async function loadModels(){try{var r=await fetch('/api/models');var j=await r.json();window.mdefs=j.defaults||{};window.curModel=j.current;window.modelBusy=false;var mb=document.getElementById('modelbtn');mb.textContent=j.current||'pick a model';var mp=document.getElementById('modelpanel');var mh='';j.models.forEach(function(m){mh+='<div class="modrow"><span class="mname" data-pick="'+esc(m)+'">'+esc(m)+'</span><button class="hfbtn hfhide" data-hide="'+esc(m)+'">Hide</button></div>';});mp.innerHTML=mh||'<div style="padding:8px;color:#666">No models.</div>';var d=window.mdefs[j.current];if(d&&d.temp!==undefined){document.getElementById('temp').value=d.temp;document.getElementById('tempv').textContent=d.temp;}var hp=document.getElementById('hiddenpanel');var hb=document.getElementById('hiddenbtn');if(j.hidden&&j.hidden.length){hb.textContent='Hidden ('+j.hidden.length+') \u25be';var hh='';j.hidden.forEach(function(m){hh+='<div class="hidrow"><span class="hname">'+esc(m)+'</span><button class="hfbtn" data-unhide="'+esc(m)+'">Unhide</button><button class="hfbtn" style="background:#d70022" data-del="'+esc(m)+'">Delete</button></div>';});hp.innerHTML=hh;}else{hb.textContent='Hidden \u25be';hp.innerHTML='<div style="padding:8px;color:#666">No hidden models.</div>';}}catch(e){}}
 function toggleHidden(){var p=document.getElementById('hiddenpanel');p.style.display=(p.style.display==='block')?'none':'block';}
 function toggleModelList(){var p=document.getElementById('modelpanel');p.style.display=(p.style.display==='block')?'none':'block';}
+function closeMenus(){var mp=document.getElementById('modelpanel');if(mp)mp.style.display='none';var hp=document.getElementById('hiddenpanel');if(hp)hp.style.display='none';}
+document.addEventListener('click',function(e){
+  if(!e.target.closest('#modelwrap')){var mp=document.getElementById('modelpanel');if(mp)mp.style.display='none';}
+  if(!e.target.closest('#hiddenwrap')){var hp=document.getElementById('hiddenpanel');if(hp)hp.style.display='none';}
+  if(e.target.id==='hfmodal')closeHf();
+});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeMenus();closeHf();}});
 async function hideModelName(m){try{await fetch('/api/hide',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:m})});}catch(e){}loadModels();}
 async function unhideModel(m){try{await fetch('/api/unhide',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:m})});}catch(e){}loadModels();}
 async function deleteModel(m){if(!confirm('Delete "'+m+'" for good? This removes the model files.'))return;var st=document.getElementById('status');st.textContent='Deleting '+m+' ...';try{var r=await fetch('/api/delete-model',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:m})});var j=await r.json();st.textContent=(j.status==='deleted')?('Deleted '+m+'.'):('Delete failed: '+(j.detail||j.status));}catch(e){st.textContent='Delete error: '+e;}loadModels();}

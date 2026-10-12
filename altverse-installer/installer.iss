@@ -1,6 +1,6 @@
 ; AltVerse Browser installer - includes a model picker wizard page.
 #define MyAppName "AltVerse Browser"
-#define MyAppVersion "1.7.7"
+#define MyAppVersion "1.7.8"
 
 [Setup]
 AppName={#MyAppName}
